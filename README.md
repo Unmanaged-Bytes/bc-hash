@@ -16,7 +16,7 @@
 Parallel file-tree hashing for large filesystems — walks directories and
 computes digests in parallel, with batched I/O via `io_uring` when available.
 On a warm-cache corpus of ~650k files / 19 GB, 1.5×–1.7× faster than
-`find | xargs -P8 <tool>`. Against AIDE 0.19 on a typical system tree
+`find | xargs -P16 <tool>`. Against AIDE 0.19 on a typical system tree
 (148k files / 3.2 GB), 8× faster on baseline creation and 6× faster on check.
 
 Built to replace ad-hoc `find | xargs -P$(nproc) sha256sum` pipelines with
@@ -49,10 +49,11 @@ Benchmark, warm cache, Ryzen 7 5700G, 5 runs, /usr/share (148 370 files / 3.2 GB
   per-worker file accumulators.
 - Batched I/O via **io_uring** with direct-fd slots; synchronous
   fallback when liburing is missing.
-- **Adaptive dispatch**: runs single-threaded on small workloads (break-even
-  ~50 files / ~1 MB on Zen 3), parallel on larger ones. Decision uses
-  hardware constants auto-measured and cached under
-  `$XDG_CACHE_HOME/bc-hash/throughput.txt`.
+- **Adaptive dispatch**: runs single-threaded on small workloads, parallel on
+  larger ones. Break-even on Zen 3: ~90 files / 1 MB to ~260 files with
+  negligible data (parallel startup overhead ~830 µs; exact threshold depends
+  on total bytes). Decision uses hardware constants auto-measured and cached
+  under `$XDG_CACHE_HOME/bc-hash/throughput.txt`.
 - `--threads=auto|0|N` to force a specific mode.
 
 ## Install (Debian 13 trixie — production)
@@ -106,12 +107,13 @@ commands:
 ## Performance
 
 All measurements: Ryzen 7 5700G, DDR4-3200, NVMe, boost disabled,
-performance governor. Reference is `find | xargs -P8 <tool>` (8 physical
-cores, matching bc-hash's worker count on this CPU).
+performance governor.
 
 ### Large corpus — 653 591 files / 19 GB (warm cache, 10 runs)
 
-| Algorithm | bc-hash | xargs -P8 reference | Speedup |
+Reference: `find | xargs -P16 <tool>` (16 threads, original benchmark conditions).
+
+| Algorithm | bc-hash | xargs -P16 reference | Speedup |
 |---|---:|---:|---:|
 | sha256 | **7.31 s** (σ 0.29) | sha256sum  11.97 s | 1.64× |
 | crc32 (CRC32C) | **6.67 s** (σ 0.34) | rhash --crc32c  — ¹ | — |
@@ -122,7 +124,8 @@ cores, matching bc-hash's worker count on this CPU).
 
 ### System tree — /usr/share, 148 370 files / 3.2 GB (warm cache, 5 runs)
 
-Typical FIM baseline corpus. Includes AIDE 0.19.1 (single-threaded, sha256).
+Reference: `find | xargs -P8 <tool>` (8 physical cores, matching bc-hash's worker count).
+Includes AIDE 0.19.1 (single-threaded, sha256).
 
 | Operation | bc-hash | xargs -P8 | AIDE 0.19.1 | vs AIDE |
 |---|---:|---:|---:|---:|
