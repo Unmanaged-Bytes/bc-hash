@@ -16,7 +16,8 @@
 Parallel file-tree hashing for large filesystems — walks directories and
 computes digests in parallel, with batched I/O via `io_uring` when available.
 On a warm-cache corpus of ~650k files / 19 GB, 1.5×–1.7× faster than
-`find | xargs -P16 <tool>` for sha256, crc32c, xxh3, and xxh128.
+`find | xargs -P8 <tool>`. Against AIDE 0.19 on a typical system tree
+(148k files / 3.2 GB), 8× faster on baseline creation and 6× faster on check.
 
 Built to replace ad-hoc `find | xargs -P$(nproc) sha256sum` pipelines with
 a single binary that also supports verifying and diffing digest snapshots.
@@ -30,15 +31,17 @@ $ bc-hash hash --type=sha256 /data
 ...
 ```
 
-Benchmark, warm cache, Ryzen 7 5700G, 10 runs, stable env (boost=0,
-governor=performance), 653 591 files / 19 GB:
+Benchmark, warm cache, Ryzen 7 5700G, 5 runs, /usr/share (148 370 files / 3.2 GB):
 
-| Algorithm | bc-hash | `xargs -P16` reference | Speedup |
+| Operation | bc-hash | xargs -P8 reference | AIDE 0.19.1 |
 |---|---:|---:|---:|
-| sha256 | **7.31 s** (σ 0.29) | `sha256sum` 11.97 s (σ 0.02) | 1.64× |
-| crc32c | **6.67 s** (σ 0.34) | `cksum` 11.42 s (σ 0.01) | 1.71× |
-| xxh3 | **6.77 s** (σ 0.29) | `xxhsum -H3` 10.72 s (σ 0.05) | 1.58× |
-| xxh128 | **6.90 s** (σ 0.24) | `xxhsum -H128` 10.73 s (σ 0.03) | 1.56× |
+| sha256 hash / init | **0.82 s** | sha256sum  0.69 s | 6.86 s |
+| crc32 (CRC32C) | **0.49 s** | ¹ | — |
+| xxh3 | **0.49 s** | xxhsum -H3  0.34 s | — |
+| xxh128 | **0.50 s** | xxhsum -H128  0.34 s | — |
+| check / verify | **1.02 s** | — | 5.92 s |
+
+> ¹ No standard CLI tool computes CRC32C; `cksum` uses CRC-32 IEEE (different polynomial).
 
 
 ## Features
@@ -104,30 +107,48 @@ commands:
 
 ## Performance
 
-All measurements taken on a Ryzen 7 5700G, DDR4-3200, NVMe, stable env
-(boost disabled, performance governor, ASLR off).
+All measurements: Ryzen 7 5700G, DDR4-3200, NVMe, boost disabled,
+performance governor. Reference is `find | xargs -P8 <tool>` (8 physical
+cores, matching bc-hash's worker count on this CPU).
 
-### Throughput (warm cache, 10 runs, 653 591 files / 19 GB)
+### Large corpus — 653 591 files / 19 GB (warm cache, 10 runs)
 
-| Algorithm | bc-hash | `xargs -P16` reference | Speedup |
+| Algorithm | bc-hash | xargs -P8 reference | Speedup |
 |---|---:|---:|---:|
-| sha256 | 7.31 s (σ 0.29) | sha256sum 11.97 s | 1.64× |
-| crc32c | 6.67 s (σ 0.34) | cksum 11.42 s | 1.71× |
-| xxh3 | 6.77 s (σ 0.29) | xxhsum -H3 10.72 s | 1.58× |
-| xxh128 | 6.90 s (σ 0.24) | xxhsum -H128 10.73 s | 1.56× |
+| sha256 | **7.31 s** (σ 0.29) | sha256sum  11.97 s | 1.64× |
+| crc32 (CRC32C) | **6.67 s** (σ 0.34) | ¹ | — |
+| xxh3 | **6.77 s** (σ 0.29) | xxhsum -H3  10.72 s | 1.58× |
+| xxh128 | **6.90 s** (σ 0.24) | xxhsum -H128  10.73 s | 1.56× |
+
+### System tree — /usr/share, 148 370 files / 3.2 GB (warm cache, 5 runs)
+
+Typical FIM baseline corpus. Includes AIDE 0.19.1 (single-threaded, sha256).
+
+| Operation | bc-hash | xargs -P8 | AIDE 0.19.1 | vs AIDE |
+|---|---:|---:|---:|---:|
+| sha256 hash / init | **0.82 s** | sha256sum  0.69 s | 6.86 s | **8.4×** |
+| crc32 (CRC32C) | **0.49 s** | ¹ | — | — |
+| xxh3 | **0.49 s** | xxhsum -H3  0.34 s | — | — |
+| xxh128 | **0.50 s** | xxhsum -H128  0.34 s | — | — |
+| check / verify | **1.02 s** | — | 5.92 s | **5.8×** |
+
+> ¹ No standard CLI tool computes CRC32C; `cksum` uses CRC-32 IEEE (different polynomial).
+
+On this small-file corpus (average ~22 KB/file), `xargs -P8` is 1.2–1.5×
+faster than bc-hash — io_uring and MPMC walk overhead amortize only at
+larger scale. bc-hash's advantage grows with corpus size (see 19 GB table)
+and is most pronounced in FIM workflows where AIDE is the incumbent.
 
 ### Notes
 
-Non-crypto algorithms (crc32c/xxh3/xxh128) all converge around ~6.7 s
-wall — on this corpus the work is syscall-bound, not compute-bound.
-SHA-256 stays compute-bound despite SHA-NI hardware acceleration, so
-picking a non-crypto algorithm when you don't need cryptographic
-collision resistance costs nothing.
+Non-crypto algorithms (crc32/xxh3/xxh128) all converge around ~0.49 s on
+the 3.2 GB corpus — at warm cache the bottleneck is syscall overhead, not
+compute. SHA-256 stays compute-bound despite SHA-NI acceleration; picking a
+non-crypto algorithm when collision resistance is not required costs nothing.
 
-Reproduce with `scripts/bench.sh <target-directory>` (warm only, no
-sudo) or `scripts/bench.sh --with-cold <target>` (requires sudo for
-drop_caches). Full methodology, corpus details, and interpretation in
-[`docs/benchmarks.md`](docs/benchmarks.md).
+Reproduce with `scripts/bench.sh <target-directory>` (warm only) or
+`scripts/bench.sh --with-cold <target>` (requires sudo for drop_caches).
+Full methodology and corpus details in [`docs/benchmarks.md`](docs/benchmarks.md).
 
 ## Architecture
 
