@@ -34,7 +34,7 @@ lto_link_args = []
 if get_option('buildtype') in ['release', 'minsize']
   arch_value = get_option('arch')
   if arch_value == ''
-    arch_value = 'x86-64-v2'
+    arch_value = 'x86-64-v3'
   endif
 
   add_project_arguments(
