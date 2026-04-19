@@ -109,7 +109,6 @@ correctness_check() {
 correctness_check sha256 sha256sum '{print $1}'
 correctness_check xxh3   "xxhsum -H3"   '{sub(/^XXH3_/,"",$1); print $1}'
 correctness_check xxh128 "xxhsum -H128" '{print $1}'
-echo "(crc32 correctness skipped — bc-hash uses CRC32C Castagnoli, cksum uses CRC-32 IEEE — validated via RFC vectors in tests)" | log
 echo "" | log
 
 # ------------------------------------------------------------------------------
@@ -173,7 +172,6 @@ if [[ $WITH_COLD -eq 1 ]]; then
     bench_bc_hash_cold xxh128
 fi
 
-bench_ref_warm "xargs-P${REF_JOBS}-cksum"      cksum
 bench_ref_warm "xargs-P${REF_JOBS}-sha256sum"  sha256sum
 bench_ref_warm "xargs-P${REF_JOBS}-xxhsum-H3"  xxhsum -H3
 bench_ref_warm "xargs-P${REF_JOBS}-xxhsum-H128" xxhsum -H128
