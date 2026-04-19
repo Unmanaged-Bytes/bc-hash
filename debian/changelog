@@ -1,3 +1,18 @@
+bc-hash (1.0.2-1) stable; urgency=medium
+
+  * Build with -march=x86-64-v3 (AVX2+FMA+BMI2): enables xxhash AVX2
+    accumulation path at runtime on Zen3/Haswell+ hosts.
+  * perf(uring): drain CQEs in batch via io_uring_peek_batch_cqe instead
+    of one-by-one wait_cqe. xxh128: -12.5%, variance reduced 16x on
+    148k files / 3.2GB warm-cache benchmark.
+  * bench: drop cksum reference (CRC-32 IEEE != CRC32C, comparison
+    misleading). Fix REF_JOBS default to 8 physical cores. Fix SIGPIPE
+    on find|head -1 in filter-gain section.
+  * build: drop stale 'benchmarks' meson option (no benchmarks/ subdir,
+    bench is driven by scripts/bench.sh).
+
+ -- Younes Benmoussa <younes.benmoussa@pm.me>  Sun, 19 Apr 2026 18:00:00 +0000
+
 bc-hash (1.0.1-1) stable; urgency=medium
 
   * Rebuild against libbc-concurrency 1.0.2.
