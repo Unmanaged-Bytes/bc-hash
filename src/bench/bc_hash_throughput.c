@@ -202,7 +202,8 @@ static double bc_hash_throughput_measure_per_file_cost_warm(void)
     uint8_t read_buffer[BC_HASH_THROUGHPUT_PER_FILE_PROBE_SIZE];
     int warmup_fd = open(absolute_path, O_RDONLY);
     if (warmup_fd >= 0) {
-        (void)read(warmup_fd, read_buffer, BC_HASH_THROUGHPUT_PER_FILE_PROBE_SIZE);
+        ssize_t warmup_bytes_read = read(warmup_fd, read_buffer, BC_HASH_THROUGHPUT_PER_FILE_PROBE_SIZE);
+        (void)warmup_bytes_read;
         close(warmup_fd);
     }
 
