@@ -1,0 +1,4 @@
+option('tests',        type : 'boolean', value : false, description : 'Build tests')
+option('benchmarks',   type : 'boolean', value : false, description : 'Build benchmarks')
+option('arch',         type : 'string',  value : '',    description : 'Target architecture for -march (empty = native)')
+option('use_io_uring', type : 'feature', value : 'auto', description : 'Use io_uring for batched file reads (liburing)')

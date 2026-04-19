@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT
+#
+# Disable Annex K (C11 bounded string APIs like fprintf_s, memcpy_s) checks:
+# glibc does not implement these, they are optional, and clang-tidy's insistence
+# generates noise on every fprintf/snprintf/memcpy call. Standard Linux C code
+# uses bounded-buffer discipline at the caller site (we do: explicit lengths
+# via snprintf(buf, sizeof(buf), ...)), not Annex K.
+Checks: '-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling'

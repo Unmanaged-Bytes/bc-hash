@@ -1,0 +1,14 @@
+bc-hash (1.0.0-1) stable; urgency=medium
+
+  * Initial public release.
+  * Parallel file-tree hashing: SHA-256 (SHA-NI accelerated),
+    CRC32C (SSE4.2), xxh3, xxh128.
+  * Lock-free MPMC directory queue with per-worker file accumulators.
+  * Batched I/O via io_uring when available; synchronous fallback.
+  * Adaptive single-threaded / multi-threaded dispatch based on
+    auto-measured hardware throughput.
+  * 'hash' and 'check' subcommands for digest production and
+    verification; exclude/include path filters.
+  * Graceful SIGINT / SIGTERM handling (<30ms exit, code 130).
+
+ -- Younes Benmoussa <younes.benmoussa@pm.me>  Sun, 19 Apr 2026 12:00:00 +0000

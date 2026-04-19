@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT
+
+unusedFunction:*/bc_core_math.h
+unusedFunction:*/bc_hash_dispatch_decision.c
+preprocessorErrorDirective:*/tests/test_bc_hash_end_to_end.c
+preprocessorErrorDirective:*/tests/test_bc_hash_reader_uring_stress.c
+preprocessorErrorDirective:*/tests/test_bc_hash_output_json.c
+preprocessorErrorDirective:*/tests/test_bc_hash_check.c
+preprocessorErrorDirective:*/tests/test_bc_hash_diff.c
+preprocessorErrorDirective:*/tests/test_bc_hash_filter.c
+unusedFunction:*tests/*_wrap.c
+unusedFunction:*/tests/*_wrap.c
+missingIncludeSystem:*
+normalCheckLevelMaxBranches:*
+checkersReport
+unmatchedSuppression

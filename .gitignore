@@ -1,0 +1,43 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.so.*
+*.gcda
+*.gcno
+*.gcov
+compile_commands.json
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.*.un~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tooling caches
+cscope.*
+tags
+TAGS
+.cache/
+
+# Debian packaging (local dpkg-buildpackage)
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/bc-hash/
+debian/*.substvars
+debian/tmp/
+*.deb
+*.buildinfo
+*.changes
+
+# Release artefact staging
+dist/
+deps/

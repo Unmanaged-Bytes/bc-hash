@@ -1,0 +1,35 @@
+Source: bc-hash
+Section: utils
+Priority: optional
+Maintainer: Younes Benmoussa <younes.benmoussa@pm.me>
+Build-Depends: debhelper-compat (= 13),
+               meson (>= 1.0),
+               ninja-build,
+               pkg-config,
+               libxxhash-dev (>= 0.8.0),
+               liburing-dev (>= 2.5),
+               libbc-core-dev (>= 1.0.0),
+               libbc-allocators-dev (>= 1.0.0),
+               libbc-containers-dev (>= 1.0.0),
+               libbc-io-dev (>= 1.0.0),
+               libbc-concurrency-dev (>= 1.0.0),
+               libbc-runtime-dev (>= 1.0.0),
+               libcmocka-dev
+Standards-Version: 4.6.2
+Homepage: https://unmanaged-bytes.com/
+Vcs-Git: https://github.com/Unmanaged-Bytes/bc-hash.git
+Vcs-Browser: https://github.com/Unmanaged-Bytes/bc-hash
+
+Package: bc-hash
+Architecture: amd64
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Description: Parallel file-tree hashing CLI
+ Walks directory trees and computes cryptographic / non-cryptographic
+ digests (SHA-256, CRC32C, xxh3, xxh128) in parallel, with batched I/O
+ via io_uring when available. On warm-cache corpora, typically
+ 1.5x-1.7x faster than find | xargs -P16 <tool> pipelines.
+ .
+ Supports the 'hash' and 'check' subcommands for computing digests
+ and verifying previously-produced digest files, plus exclude/include
+ path filters and adaptive single-thread vs multi-thread dispatch.
