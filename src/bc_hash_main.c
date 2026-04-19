@@ -31,7 +31,9 @@
 #define BC_HASH_APPLICATION_ENTRY_MAX_CAPACITY (1ULL << 28)
 #define BC_HASH_OUTPUT_STDOUT_THRESHOLD ((size_t)20)
 #define BC_HASH_OUTPUT_BUFFER_BYTES ((size_t)(64 * 1024))
-#define BC_HASH_VERSION_STRING "1.0.0"
+#ifndef BC_HASH_VERSION_STRING
+#define BC_HASH_VERSION_STRING "0.0.0-unversioned"
+#endif
 
 static uint64_t bc_hash_main_realtime_unix_ms(void)
 {

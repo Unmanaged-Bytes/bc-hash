@@ -37,11 +37,13 @@ endif
 cc = meson.get_compiler('c')
 libm_dep = cc.find_library('m', required : true)
 
+bc_hash_version_c_arg = '-DBC_HASH_VERSION_STRING="@0@"'.format(meson.project_version())
+
 bc_hash_bin = executable('bc-hash',
   bc_hash_sources,
   include_directories : [bc_hash_internal_inc],
   dependencies : bc_hash_deps + [libm_dep],
-  c_args : lto_c_args,
+  c_args : lto_c_args + [bc_hash_version_c_arg],
   link_args : lto_link_args,
   install : true,
 )

@@ -81,9 +81,13 @@ static const bc_runtime_cli_command_spec_t bc_hash_commands[] = {
     },
 };
 
+#ifndef BC_HASH_VERSION_STRING
+#define BC_HASH_VERSION_STRING "0.0.0-unversioned"
+#endif
+
 static const bc_runtime_cli_program_spec_t bc_hash_program_spec_value = {
     .program_name = "bc-hash",
-    .version = "1.0.0",
+    .version = BC_HASH_VERSION_STRING,
     .summary = "parallel file-tree hashing",
     .global_options = bc_hash_global_options,
     .global_option_count = sizeof(bc_hash_global_options) / sizeof(bc_hash_global_options[0]),
