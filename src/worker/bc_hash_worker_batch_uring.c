@@ -176,18 +176,22 @@ static bool bc_hash_ring_drive_chunk(bc_hash_reader_ring_t* ring, bc_hash_reader
 
     unsigned int expected_completion_count = 3U * submitted_slot_count;
     unsigned int completions_seen = 0;
+    struct io_uring_cqe* cqe_batch[BC_HASH_RING_QUEUE_DEPTH];
     while (completions_seen < expected_completion_count) {
-        struct io_uring_cqe* cqe = NULL;
-        int wait_status = io_uring_wait_cqe(&ring->ring, &cqe);
+        struct io_uring_cqe* wait_sentinel = NULL;
+        int wait_status = io_uring_wait_cqe(&ring->ring, &wait_sentinel);
         if (wait_status < 0) {
             if (wait_status == -EINTR) {
                 continue;
             }
             return false;
         }
-        bc_hash_ring_handle_cqe(ring, items, slot_to_item, consumer_function, cqe);
-        io_uring_cqe_seen(&ring->ring, cqe);
-        completions_seen += 1;
+        unsigned int batch_count = io_uring_peek_batch_cqe(&ring->ring, cqe_batch, BC_HASH_RING_QUEUE_DEPTH);
+        for (unsigned int i = 0; i < batch_count; ++i) {
+            bc_hash_ring_handle_cqe(ring, items, slot_to_item, consumer_function, cqe_batch[i]);
+        }
+        io_uring_cq_advance(&ring->ring, batch_count);
+        completions_seen += batch_count;
     }
 
     return true;
