@@ -80,6 +80,3 @@ if get_option('tests')
   subdir('tests')
 endif
 
-if get_option('benchmarks')
-  subdir('benchmarks')
-endif
