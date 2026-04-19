@@ -36,12 +36,10 @@ Benchmark, warm cache, Ryzen 7 5700G, 5 runs, /usr/share (148 370 files / 3.2 GB
 | Operation | bc-hash | xargs -P8 reference | AIDE 0.19.1 |
 |---|---:|---:|---:|
 | sha256 hash / init | **0.82 s** | sha256sum  0.69 s | 6.86 s |
-| crc32 (CRC32C) | **0.49 s** | ¹ | — |
+| crc32 (CRC32C) | **0.49 s** | rhash --crc32c  0.57 s | — |
 | xxh3 | **0.49 s** | xxhsum -H3  0.34 s | — |
 | xxh128 | **0.50 s** | xxhsum -H128  0.34 s | — |
 | check / verify | **1.02 s** | — | 5.92 s |
-
-> ¹ No standard CLI tool computes CRC32C; `cksum` uses CRC-32 IEEE (different polynomial).
 
 
 ## Features
@@ -116,9 +114,11 @@ cores, matching bc-hash's worker count on this CPU).
 | Algorithm | bc-hash | xargs -P8 reference | Speedup |
 |---|---:|---:|---:|
 | sha256 | **7.31 s** (σ 0.29) | sha256sum  11.97 s | 1.64× |
-| crc32 (CRC32C) | **6.67 s** (σ 0.34) | ¹ | — |
+| crc32 (CRC32C) | **6.67 s** (σ 0.34) | rhash --crc32c  — ¹ | — |
 | xxh3 | **6.77 s** (σ 0.29) | xxhsum -H3  10.72 s | 1.58× |
 | xxh128 | **6.90 s** (σ 0.24) | xxhsum -H128  10.73 s | 1.56× |
+
+> ¹ `rhash --crc32c` is the correct CRC32C reference; 19 GB run not yet measured.
 
 ### System tree — /usr/share, 148 370 files / 3.2 GB (warm cache, 5 runs)
 
@@ -127,12 +127,10 @@ Typical FIM baseline corpus. Includes AIDE 0.19.1 (single-threaded, sha256).
 | Operation | bc-hash | xargs -P8 | AIDE 0.19.1 | vs AIDE |
 |---|---:|---:|---:|---:|
 | sha256 hash / init | **0.82 s** | sha256sum  0.69 s | 6.86 s | **8.4×** |
-| crc32 (CRC32C) | **0.49 s** | ¹ | — | — |
+| crc32 (CRC32C) | **0.49 s** | rhash --crc32c  0.57 s | — | — |
 | xxh3 | **0.49 s** | xxhsum -H3  0.34 s | — | — |
 | xxh128 | **0.50 s** | xxhsum -H128  0.34 s | — | — |
 | check / verify | **1.02 s** | — | 5.92 s | **5.8×** |
-
-> ¹ No standard CLI tool computes CRC32C; `cksum` uses CRC-32 IEEE (different polynomial).
 
 On this small-file corpus (average ~22 KB/file), `xargs -P8` is 1.2–1.5×
 faster than bc-hash — io_uring and MPMC walk overhead amortize only at
