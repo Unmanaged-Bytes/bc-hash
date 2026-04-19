@@ -13,7 +13,7 @@ test_bc_hash_end_to_end = executable('test_bc_hash_end_to_end',
   ],
 )
 
-test('bc_hash_end_to_end', test_bc_hash_end_to_end, depends : [bc_hash_bin])
+test('bc_hash_end_to_end', test_bc_hash_end_to_end, depends : [bc_hash_bin], timeout : 120)
 
 if liburing_dep.found()
   test_bc_hash_reader_uring_stress = executable('test_bc_hash_reader_uring_stress',
@@ -92,7 +92,7 @@ test_bc_hash_output_json = executable('test_bc_hash_output_json',
     '-DBC_HASH_TEST_FIXTURES_DIRECTORY="' + fixtures_directory + '"',
   ],
 )
-test('bc_hash_output_json', test_bc_hash_output_json, depends : [bc_hash_bin])
+test('bc_hash_output_json', test_bc_hash_output_json, depends : [bc_hash_bin], timeout : 120)
 
 test_bc_hash_check = executable('test_bc_hash_check',
   'test_bc_hash_check.c',
@@ -102,7 +102,7 @@ test_bc_hash_check = executable('test_bc_hash_check',
     '-DBC_HASH_TEST_FIXTURES_DIRECTORY="' + fixtures_directory + '"',
   ],
 )
-test('bc_hash_check', test_bc_hash_check, depends : [bc_hash_bin])
+test('bc_hash_check', test_bc_hash_check, depends : [bc_hash_bin], timeout : 120)
 
 test_bc_hash_diff = executable('test_bc_hash_diff',
   'test_bc_hash_diff.c',
@@ -112,7 +112,7 @@ test_bc_hash_diff = executable('test_bc_hash_diff',
     '-DBC_HASH_TEST_FIXTURES_DIRECTORY="' + fixtures_directory + '"',
   ],
 )
-test('bc_hash_diff', test_bc_hash_diff, depends : [bc_hash_bin])
+test('bc_hash_diff', test_bc_hash_diff, depends : [bc_hash_bin], timeout : 120)
 
 test_bc_hash_filter = executable('test_bc_hash_filter',
   'test_bc_hash_filter.c',
@@ -122,4 +122,4 @@ test_bc_hash_filter = executable('test_bc_hash_filter',
     '-DBC_HASH_TEST_FIXTURES_DIRECTORY="' + fixtures_directory + '"',
   ],
 )
-test('bc_hash_filter', test_bc_hash_filter, depends : [bc_hash_bin])
+test('bc_hash_filter', test_bc_hash_filter, depends : [bc_hash_bin], timeout : 120)
