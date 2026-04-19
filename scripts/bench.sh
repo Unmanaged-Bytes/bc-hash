@@ -18,7 +18,7 @@ TARGET=""
 WITH_COLD=0
 WARM_RUNS="${WARM_RUNS:-10}"
 COLD_RUNS="${COLD_RUNS:-3}"
-REF_JOBS="${REF_JOBS:-16}"
+REF_JOBS="${REF_JOBS:-8}"
 CORRECTNESS_SAMPLES="${CORRECTNESS_SAMPLES:-8}"
 
 usage() {
@@ -196,7 +196,7 @@ echo "  diff exit=$diff_code  $(cat "$FEAT_DIR/diff.stderr")" | log
 echo "" | log
 
 echo "--- filter gain: prune first top-level subdir ---" | log
-first_dir="$(find "$TARGET" -mindepth 1 -maxdepth 1 -type d | head -1)"
+first_dir="$(find "$TARGET" -mindepth 1 -maxdepth 1 -type d -print -quit)"
 if [[ -n "$first_dir" ]]; then
     first_base="$(basename "$first_dir")"
     echo "  pruning basename='$first_base'" | log
