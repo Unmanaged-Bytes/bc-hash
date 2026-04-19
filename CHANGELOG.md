@@ -2,6 +2,22 @@
 
 All notable changes to bc-hash are documented here.
 
+## [1.0.1]
+
+### Changed
+
+- Rebuilt against libbc-concurrency 1.0.2, which replaces atomic +
+  futex worker signaling with pthread_mutex + condition variables to
+  close residual ThreadSanitizer data races on gcc 13 / ubuntu-24.04.
+  bc-hash statically links libbc-concurrency, so consuming the fix
+  requires a fresh build.
+
+### Fixed
+
+- Debian hardening build: assign the cache-warmup `read(2)` return
+  value instead of discarding it, to satisfy
+  `-Werror=unused-result` under `-D_FORTIFY_SOURCE=2`.
+
 ## [1.0.0]
 
 Initial public release.

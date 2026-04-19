@@ -1,3 +1,19 @@
+bc-hash (1.0.1-1) stable; urgency=medium
+
+  * Rebuild against libbc-concurrency 1.0.2.
+  * Upstream dependency libbc-concurrency 1.0.2 replaces its atomic +
+    futex worker signaling with pthread_mutex + condition variables to
+    close residual ThreadSanitizer data races on gcc 13 ubuntu-24.04.
+    bc-hash embeds libbc-concurrency statically, so picking up the fix
+    requires a fresh build.
+  * No bc-hash source changes beyond a debian-hardening fix for
+    read(2) warn_unused_result in src/bench/bc_hash_throughput.c.
+  * No measurable performance regression: sha256 1.85 s / crc32c
+    1.02 s / xxh3 1.01 s / xxh128 0.99 s on 13 GB / 724 k files warm
+    cache (5 runs).
+
+ -- Younes Benmoussa <younes.benmoussa@pm.me>  Sun, 19 Apr 2026 16:00:00 +0000
+
 bc-hash (1.0.0-1) stable; urgency=medium
 
   * Initial public release.
