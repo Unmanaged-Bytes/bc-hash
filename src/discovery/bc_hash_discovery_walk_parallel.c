@@ -37,6 +37,7 @@ typedef struct bc_hash_walk_parallel_queue_entry {
 typedef struct bc_hash_walk_parallel_worker_slot {
     bc_containers_vector_t* file_entries;
     bc_hash_error_collector_t* errors;
+    char cache_line_padding[BC_CACHE_LINE_SIZE - 2 * sizeof(void*)];
 } bc_hash_walk_parallel_worker_slot_t;
 
 typedef struct bc_hash_walk_parallel_shared {
