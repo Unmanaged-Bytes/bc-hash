@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+#include "bc_hash_dirent_internal.h"
 #include "bc_hash_discovery_internal.h"
 #include "bc_hash_strings_internal.h"
 
@@ -115,44 +116,39 @@ static void bc_hash_walk_parallel_process_directory(bc_hash_walk_parallel_shared
         bc_hash_error_collector_record(worker_slot->errors, worker_memory, directory_path, "open", errno);
         return;
     }
-    int duplicated_file_descriptor = dup(directory_file_descriptor);
-    if (duplicated_file_descriptor < 0) {
-        bc_hash_error_collector_record(worker_slot->errors, worker_memory, directory_path, "dup", errno);
-        close(directory_file_descriptor);
-        return;
-    }
-    DIR* directory_stream = fdopendir(duplicated_file_descriptor);
-    if (directory_stream == NULL) {
-        close(duplicated_file_descriptor);
-        close(directory_file_descriptor);
-        bc_hash_error_collector_record(worker_slot->errors, worker_memory, directory_path, "fdopendir", errno);
-        return;
-    }
 
-    const struct dirent* directory_entry = NULL;
-    errno = 0;
-    while ((directory_entry = readdir(directory_stream)) != NULL) {
-        const char* entry_name = directory_entry->d_name;
-        if (entry_name[0] == '.') {
-            errno = 0;
+    bc_hash_dirent_reader_t dirent_reader;
+    bc_hash_dirent_reader_init(&dirent_reader, directory_file_descriptor);
+
+    for (;;) {
+        bc_hash_dirent_entry_t current_entry;
+        bool has_entry = false;
+        if (!bc_hash_dirent_reader_next(&dirent_reader, &current_entry, &has_entry)) {
+            bc_hash_error_collector_record(worker_slot->errors, worker_memory, directory_path, "getdents64", dirent_reader.last_errno);
+            break;
+        }
+        if (!has_entry) {
+            break;
+        }
+        if (current_entry.name[0] == '.') {
             continue;
         }
 
-        size_t entry_name_length = bc_hash_strings_length(entry_name);
+        const char* entry_name = current_entry.name;
+        size_t entry_name_length = current_entry.name_length;
         char child_path_buffer[BC_IO_MAX_PATH_LENGTH];
         size_t child_path_length = 0;
         if (!bc_io_file_path_join(child_path_buffer, sizeof(child_path_buffer), directory_path, directory_path_length, entry_name,
                                   entry_name_length, &child_path_length)) {
             bc_hash_error_collector_record(worker_slot->errors, worker_memory, directory_path, "path-too-long", ENAMETOOLONG);
-            errno = 0;
             continue;
         }
 
         bc_io_file_entry_type_t entry_type = BC_IO_ENTRY_TYPE_OTHER;
         size_t resolved_file_size = 0;
         bool size_already_known = false;
-        if (directory_entry->d_type != DT_UNKNOWN) {
-            bc_io_file_dtype_to_entry_type(directory_entry->d_type, &entry_type);
+        if (current_entry.d_type != DT_UNKNOWN) {
+            bc_io_file_dtype_to_entry_type(current_entry.d_type, &entry_type);
         } else {
             dev_t device_value = 0;
             ino_t inode_value = 0;
@@ -160,7 +156,6 @@ static void bc_hash_walk_parallel_process_directory(bc_hash_walk_parallel_shared
             if (!bc_io_file_stat_if_unknown(directory_file_descriptor, entry_name, &entry_type, &device_value, &inode_value,
                                             &resolved_file_size, &modification_time_value)) {
                 bc_hash_error_collector_record(worker_slot->errors, worker_memory, child_path_buffer, "stat", errno);
-                errno = 0;
                 continue;
             }
             size_already_known = true;
@@ -175,7 +170,6 @@ static void bc_hash_walk_parallel_process_directory(bc_hash_walk_parallel_shared
                 struct stat file_stat_buffer;
                 if (fstatat(directory_file_descriptor, entry_name, &file_stat_buffer, AT_SYMLINK_NOFOLLOW) != 0) {
                     bc_hash_error_collector_record(worker_slot->errors, worker_memory, child_path_buffer, "stat", errno);
-                    errno = 0;
                     continue;
                 }
                 resolved_file_size = (size_t)file_stat_buffer.st_size;
@@ -209,14 +203,8 @@ static void bc_hash_walk_parallel_process_directory(bc_hash_walk_parallel_shared
         default:
             break;
         }
-        errno = 0;
     }
 
-    if (errno != 0) {
-        bc_hash_error_collector_record(worker_slot->errors, worker_memory, directory_path, "readdir", errno);
-    }
-
-    closedir(directory_stream);
     close(directory_file_descriptor);
 }
 
