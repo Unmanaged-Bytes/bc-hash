@@ -2,6 +2,27 @@
 
 All notable changes to bc-hash are documented here.
 
+## [1.0.2]
+
+### Changed
+
+- **Build with `-march=x86-64-v3`** (AVX2 + FMA + BMI2): enables the
+  xxhash AVX2 accumulation path at runtime on Zen 3 / Haswell+ hosts.
+
+### Performance
+
+- **io_uring: batch CQE drain via `io_uring_peek_batch_cqe`** instead
+  of one-by-one `wait_cqe`. xxh128 -12.5 %, variance reduced 16× on the
+  148 k files / 3.2 GB warm-cache benchmark.
+
+### Fixed
+
+- **Benchmarks**: dropped `cksum` reference (CRC-32 IEEE is not CRC32C,
+  comparison was misleading). Fixed `REF_JOBS` default to 8 physical
+  cores. Fixed SIGPIPE on `find | head -1` in the filter-gain section.
+- **Build**: dropped stale `benchmarks` meson option — no
+  `benchmarks/` subdirectory, bench is driven by `scripts/bench.sh`.
+
 ## [1.0.1]
 
 ### Changed
@@ -45,4 +66,6 @@ Initial public release.
   exit code 130.
 
 
-[1.0.0]: https://github.com/OWNER/bc-hash/releases/tag/v1.0.0
+[1.0.0]: https://github.com/Unmanaged-Bytes/bc-hash/releases/tag/v1.0.0
+[1.0.1]: https://github.com/Unmanaged-Bytes/bc-hash/releases/tag/v1.0.1
+[1.0.2]: https://github.com/Unmanaged-Bytes/bc-hash/releases/tag/v1.0.2
