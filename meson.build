@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 
 project('bc-hash', 'c',
-  version : '1.0.2',
+  version : '1.0.3',
   license : 'MIT',
   default_options : [
     'c_std=c11',

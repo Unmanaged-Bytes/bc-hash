@@ -1,3 +1,20 @@
+bc-hash (1.0.3-1) stable; urgency=medium
+
+  * perf(discovery): switch walk_parallel to raw syscall(SYS_getdents64)
+    and pad worker_slot_t to a full cache line. Together, on warm cache
+    /var/benchmarks (1069096 files, 19 GB) these changes cut the
+    discovery-only time from 0.195 s to 0.150 s (−25%). End-to-end
+    sha256 wall time drops from 7.31 s (1.0.2 README baseline) to
+    ~2.98 s, xxh3 from 6.77 s to ~1.81 s (Ryzen 7 5700G, warm, 5-run
+    median). Correctness: byte-exact parity with sha256sum / xxhsum
+    -H3 / xxhsum -H128 on sampled groups.
+  * refactor: consume libbc-io 1.1.0 dirent_reader and libbc-runtime
+    1.1.0 error_collector; drop internal duplicates (~200 LOC).
+  * Build-Depends: libbc-io-dev >= 1.1.0, libbc-runtime-dev >= 1.1.0,
+    libbc-allocators-dev >= 1.1.0.
+
+ -- Younes Benmoussa <younes.benmoussa@pm.me>  Tue, 21 Apr 2026 21:55:00 +0000
+
 bc-hash (1.0.2-1) stable; urgency=medium
 
   * Build with -march=x86-64-v3 (AVX2+FMA+BMI2): enables xxhash AVX2
