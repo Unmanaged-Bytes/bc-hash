@@ -67,13 +67,6 @@ test_bc_hash_cli_spec_unit = executable('test_bc_hash_cli_spec_unit',
 )
 test('bc_hash_cli_spec_unit', test_bc_hash_cli_spec_unit)
 
-test_bc_hash_error_unit = executable('test_bc_hash_error_unit',
-  'test_bc_hash_error_unit.c',
-  '../src/error/bc_hash_error_collector.c',
-  include_directories : [bc_hash_internal_inc],
-  dependencies : [cmocka_dep, bc_core_dep, bc_allocators_dep, bc_containers_dep],
-)
-test('bc_hash_error_unit', test_bc_hash_error_unit)
 
 test_bc_hash_output_unit = executable('test_bc_hash_output_unit',
   'test_bc_hash_output_unit.c',

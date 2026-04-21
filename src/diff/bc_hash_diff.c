@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "bc_hash_diff_internal.h"
-#include "bc_hash_error_internal.h"
+#include "bc_runtime_error_collector.h"
 #include "bc_hash_types_internal.h"
 #include "bc_hash_verify_internal.h"
 

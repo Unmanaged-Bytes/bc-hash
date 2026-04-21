@@ -37,7 +37,7 @@ typedef struct bc_hash_walk_parallel_queue_entry {
 
 typedef struct bc_hash_walk_parallel_worker_slot {
     bc_containers_vector_t* file_entries;
-    bc_hash_error_collector_t* errors;
+    bc_runtime_error_collector_t* errors;
     char cache_line_padding[BC_CACHE_LINE_SIZE - 2 * sizeof(void*)];
 } bc_hash_walk_parallel_worker_slot_t;
 
@@ -74,7 +74,7 @@ static bool bc_hash_walk_parallel_ensure_worker_slot(const bc_hash_walk_parallel
         }
     }
     if (slot->errors == NULL) {
-        if (!bc_hash_error_collector_create(worker_memory, &slot->errors)) {
+        if (!bc_runtime_error_collector_create(worker_memory, &slot->errors)) {
             return false;
         }
     }
@@ -113,7 +113,7 @@ static void bc_hash_walk_parallel_process_directory(bc_hash_walk_parallel_shared
 {
     int directory_file_descriptor = open(directory_path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (directory_file_descriptor < 0) {
-        bc_hash_error_collector_record(worker_slot->errors, worker_memory, directory_path, "open", errno);
+        bc_runtime_error_collector_append(worker_slot->errors, worker_memory, directory_path, "open", errno);
         return;
     }
 
@@ -124,7 +124,7 @@ static void bc_hash_walk_parallel_process_directory(bc_hash_walk_parallel_shared
         bc_io_dirent_entry_t current_entry;
         bool has_entry = false;
         if (!bc_io_dirent_reader_next(&dirent_reader, &current_entry, &has_entry)) {
-            bc_hash_error_collector_record(worker_slot->errors, worker_memory, directory_path, "getdents64", dirent_reader.last_errno);
+            bc_runtime_error_collector_append(worker_slot->errors, worker_memory, directory_path, "getdents64", dirent_reader.last_errno);
             break;
         }
         if (!has_entry) {
@@ -140,7 +140,7 @@ static void bc_hash_walk_parallel_process_directory(bc_hash_walk_parallel_shared
         size_t child_path_length = 0;
         if (!bc_io_file_path_join(child_path_buffer, sizeof(child_path_buffer), directory_path, directory_path_length, entry_name,
                                   entry_name_length, &child_path_length)) {
-            bc_hash_error_collector_record(worker_slot->errors, worker_memory, directory_path, "path-too-long", ENAMETOOLONG);
+            bc_runtime_error_collector_append(worker_slot->errors, worker_memory, directory_path, "path-too-long", ENAMETOOLONG);
             continue;
         }
 
@@ -155,7 +155,7 @@ static void bc_hash_walk_parallel_process_directory(bc_hash_walk_parallel_shared
             time_t modification_time_value = 0;
             if (!bc_io_file_stat_if_unknown(directory_file_descriptor, entry_name, &entry_type, &device_value, &inode_value,
                                             &resolved_file_size, &modification_time_value)) {
-                bc_hash_error_collector_record(worker_slot->errors, worker_memory, child_path_buffer, "stat", errno);
+                bc_runtime_error_collector_append(worker_slot->errors, worker_memory, child_path_buffer, "stat", errno);
                 continue;
             }
             size_already_known = true;
@@ -169,14 +169,14 @@ static void bc_hash_walk_parallel_process_directory(bc_hash_walk_parallel_shared
             if (!size_already_known) {
                 struct stat file_stat_buffer;
                 if (fstatat(directory_file_descriptor, entry_name, &file_stat_buffer, AT_SYMLINK_NOFOLLOW) != 0) {
-                    bc_hash_error_collector_record(worker_slot->errors, worker_memory, child_path_buffer, "stat", errno);
+                    bc_runtime_error_collector_append(worker_slot->errors, worker_memory, child_path_buffer, "stat", errno);
                     continue;
                 }
                 resolved_file_size = (size_t)file_stat_buffer.st_size;
             }
             if (!bc_hash_walk_parallel_append_file_entry(worker_memory, worker_slot->file_entries, child_path_buffer, child_path_length,
                                                         resolved_file_size)) {
-                bc_hash_error_collector_record(worker_slot->errors, worker_memory, child_path_buffer, "enqueue", ENOMEM);
+                bc_runtime_error_collector_append(worker_slot->errors, worker_memory, child_path_buffer, "enqueue", ENOMEM);
             }
             break;
         }
@@ -269,12 +269,12 @@ static void bc_hash_walk_parallel_merge_worker_slot(void* slot_data, size_t work
         }
     }
     if (slot->errors != NULL) {
-        bc_hash_error_collector_flush_to_stderr(slot->errors);
+        bc_runtime_error_collector_flush_to_stderr(slot->errors, "bc-hash");
     }
 }
 
 static bool bc_hash_walk_parallel_append_root_file(bc_allocators_context_t* memory_context, bc_containers_vector_t* destination_entries,
-                                                   bc_hash_error_collector_t* errors, const char* input_path, size_t file_size)
+                                                   bc_runtime_error_collector_t* errors, const char* input_path, size_t file_size)
 {
     if (file_size == 0) {
         return true;
@@ -282,7 +282,7 @@ static bool bc_hash_walk_parallel_append_root_file(bc_allocators_context_t* memo
     size_t input_path_length = bc_hash_strings_length(input_path);
     char* path_copy = NULL;
     if (!bc_allocators_pool_allocate(memory_context, input_path_length + 1, (void**)&path_copy)) {
-        bc_hash_error_collector_record(errors, memory_context, input_path, "allocate", ENOMEM);
+        bc_runtime_error_collector_append(errors, memory_context, input_path, "allocate", ENOMEM);
         return false;
     }
     bc_core_copy(path_copy, input_path, input_path_length);
@@ -295,13 +295,13 @@ static bool bc_hash_walk_parallel_append_root_file(bc_allocators_context_t* memo
     };
     if (!bc_containers_vector_push(memory_context, destination_entries, &entry)) {
         bc_allocators_pool_free(memory_context, path_copy);
-        bc_hash_error_collector_record(errors, memory_context, input_path, "enqueue", ENOMEM);
+        bc_runtime_error_collector_append(errors, memory_context, input_path, "enqueue", ENOMEM);
         return false;
     }
     return true;
 }
 
-static bool bc_hash_walk_parallel_push_root_directory(bc_hash_walk_parallel_shared_t* shared, bc_hash_error_collector_t* errors,
+static bool bc_hash_walk_parallel_push_root_directory(bc_hash_walk_parallel_shared_t* shared, bc_runtime_error_collector_t* errors,
                                                      const char* input_path)
 {
     size_t input_path_length = bc_hash_strings_length(input_path);
@@ -309,7 +309,7 @@ static bool bc_hash_walk_parallel_push_root_directory(bc_hash_walk_parallel_shar
         input_path_length -= 1;
     }
     if (input_path_length >= BC_IO_MAX_PATH_LENGTH) {
-        bc_hash_error_collector_record(errors, shared->main_memory_context, input_path, "path-too-long", ENAMETOOLONG);
+        bc_runtime_error_collector_append(errors, shared->main_memory_context, input_path, "path-too-long", ENAMETOOLONG);
         return false;
     }
 
@@ -322,18 +322,18 @@ static bool bc_hash_walk_parallel_push_root_directory(bc_hash_walk_parallel_shar
     atomic_fetch_add_explicit(&shared->outstanding_directory_count, 1, memory_order_relaxed);
     if (!bc_concurrency_queue_push(shared->directory_queue, &queue_entry)) {
         atomic_fetch_sub_explicit(&shared->outstanding_directory_count, 1, memory_order_relaxed);
-        bc_hash_error_collector_record(errors, shared->main_memory_context, input_path, "enqueue", ENOSPC);
+        bc_runtime_error_collector_append(errors, shared->main_memory_context, input_path, "enqueue", ENOSPC);
         return false;
     }
     return true;
 }
 
 static void bc_hash_walk_parallel_process_input_path(bc_hash_walk_parallel_shared_t* shared, bc_containers_vector_t* destination_entries,
-                                                     bc_hash_error_collector_t* errors, const char* input_path)
+                                                     bc_runtime_error_collector_t* errors, const char* input_path)
 {
     struct stat input_stat_buffer;
     if (fstatat(AT_FDCWD, input_path, &input_stat_buffer, AT_SYMLINK_NOFOLLOW) != 0) {
-        bc_hash_error_collector_record(errors, shared->main_memory_context, input_path, "stat", errno);
+        bc_runtime_error_collector_append(errors, shared->main_memory_context, input_path, "stat", errno);
         return;
     }
     if (S_ISREG(input_stat_buffer.st_mode)) {
@@ -342,20 +342,20 @@ static void bc_hash_walk_parallel_process_input_path(bc_hash_walk_parallel_share
     } else if (S_ISDIR(input_stat_buffer.st_mode)) {
         bc_hash_walk_parallel_push_root_directory(shared, errors, input_path);
     } else if (S_ISLNK(input_stat_buffer.st_mode)) {
-        bc_hash_error_collector_record(errors, shared->main_memory_context, input_path, "skip-symlink", ELOOP);
+        bc_runtime_error_collector_append(errors, shared->main_memory_context, input_path, "skip-symlink", ELOOP);
     } else {
-        bc_hash_error_collector_record(errors, shared->main_memory_context, input_path, "skip-other", EINVAL);
+        bc_runtime_error_collector_append(errors, shared->main_memory_context, input_path, "skip-other", EINVAL);
     }
 }
 
 static void bc_hash_walk_parallel_expand_glob(bc_hash_walk_parallel_shared_t* shared, bc_containers_vector_t* destination_entries,
-                                              bc_hash_error_collector_t* errors, const char* pattern)
+                                              bc_runtime_error_collector_t* errors, const char* pattern)
 {
     glob_t glob_buffer;
     int glob_flags = GLOB_NOSORT | GLOB_NOCHECK | GLOB_NOMAGIC;
     int glob_result = glob(pattern, glob_flags, NULL, &glob_buffer);
     if (glob_result != 0) {
-        bc_hash_error_collector_record(errors, shared->main_memory_context, pattern, "glob", EINVAL);
+        bc_runtime_error_collector_append(errors, shared->main_memory_context, pattern, "glob", EINVAL);
         globfree(&glob_buffer);
         return;
     }
@@ -366,7 +366,7 @@ static void bc_hash_walk_parallel_expand_glob(bc_hash_walk_parallel_shared_t* sh
 }
 
 bool bc_hash_discovery_expand_parallel(bc_allocators_context_t* memory_context, bc_concurrency_context_t* concurrency_context,
-                                       bc_containers_vector_t* entries, bc_hash_error_collector_t* errors,
+                                       bc_containers_vector_t* entries, bc_runtime_error_collector_t* errors,
                                        bc_concurrency_signal_handler_t* signal_handler, const bc_hash_filter_t* filter,
                                        const char* const* input_paths, size_t input_count)
 {

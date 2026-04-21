@@ -292,7 +292,7 @@ static void bc_hash_dispatch_ring_destroy(void* data, size_t worker_index, void*
 }
 
 bool bc_hash_worker_dispatch_all(bc_concurrency_context_t* concurrency, bc_hash_algorithm_t algorithm,
-                                 const bc_containers_vector_t* entries, bc_hash_result_entry_t* results, bc_hash_error_collector_t* errors,
+                                 const bc_containers_vector_t* entries, bc_hash_result_entry_t* results, bc_runtime_error_collector_t* errors,
                                  bc_allocators_context_t* main_memory_context, bc_concurrency_signal_handler_t* signal_handler)
 {
     size_t entry_count = bc_containers_vector_length(entries);
@@ -347,14 +347,14 @@ bool bc_hash_worker_dispatch_all(bc_concurrency_context_t* concurrency, bc_hash_
         if (!bc_containers_vector_get(entries, index, &entry)) {
             continue;
         }
-        bc_hash_error_collector_record(errors, main_memory_context, entry.absolute_path, "hash", results[index].errno_value);
+        bc_runtime_error_collector_append(errors, main_memory_context, entry.absolute_path, "hash", results[index].errno_value);
     }
 
     return true;
 }
 
 bool bc_hash_worker_dispatch_sequential(bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
-                                        bc_hash_result_entry_t* results, bc_hash_error_collector_t* errors,
+                                        bc_hash_result_entry_t* results, bc_runtime_error_collector_t* errors,
                                         bc_allocators_context_t* main_memory_context,
                                         const bc_concurrency_signal_handler_t* signal_handler)
 {
@@ -403,7 +403,7 @@ bool bc_hash_worker_dispatch_sequential(bc_hash_algorithm_t algorithm, const bc_
         if (!bc_containers_vector_get(entries, entry_index, &entry)) {
             continue;
         }
-        bc_hash_error_collector_record(errors, main_memory_context, entry.absolute_path, "hash", results[entry_index].errno_value);
+        bc_runtime_error_collector_append(errors, main_memory_context, entry.absolute_path, "hash", results[entry_index].errno_value);
     }
 
     return true;

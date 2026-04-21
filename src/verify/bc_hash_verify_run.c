@@ -64,7 +64,7 @@ static bool bc_hash_verify_stat_target(const char* path, size_t* out_file_size, 
 
 bool bc_hash_verify_run(bc_allocators_context_t* memory_context, bc_concurrency_context_t* concurrency_context,
                         bc_concurrency_signal_handler_t* signal_handler, bc_hash_algorithm_t algorithm,
-                        bc_containers_vector_t* expectations, bc_hash_error_collector_t* errors, int* out_exit_code)
+                        bc_containers_vector_t* expectations, bc_runtime_error_collector_t* errors, int* out_exit_code)
 {
     size_t expectation_count = bc_containers_vector_length(expectations);
     if (expectation_count == 0) {

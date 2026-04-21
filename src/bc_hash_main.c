@@ -4,7 +4,7 @@
 #include "bc_hash_diff_internal.h"
 #include "bc_hash_discovery_internal.h"
 #include "bc_hash_dispatch_decision_internal.h"
-#include "bc_hash_error_internal.h"
+#include "bc_runtime_error_collector.h"
 #include "bc_hash_filter_internal.h"
 #include "bc_hash_output_internal.h"
 #include "bc_hash_throughput_internal.h"
@@ -64,7 +64,7 @@ typedef struct bc_hash_application_state {
     bc_containers_vector_t* expectations;
     bc_hash_algorithm_t detected_algorithm;
     bc_hash_filter_t* filter;
-    bc_hash_error_collector_t* errors;
+    bc_runtime_error_collector_t* errors;
     int exit_code;
 } bc_hash_application_state_t;
 
@@ -88,7 +88,7 @@ static bool bc_hash_application_init(const bc_runtime_t* application, void* user
         return false;
     }
 
-    if (!bc_hash_error_collector_create(memory_context, &state->errors)) {
+    if (!bc_runtime_error_collector_create(memory_context, &state->errors)) {
         state->exit_code = 1;
         return false;
     }
@@ -159,7 +159,7 @@ static bool bc_hash_check_run(const bc_runtime_t* application, bc_hash_applicati
         return false;
     }
 
-    bc_hash_error_collector_flush_to_stderr(state->errors);
+    bc_runtime_error_collector_flush_to_stderr(state->errors, "bc-hash");
     state->exit_code = verify_exit_code;
     return true;
 }
@@ -238,8 +238,8 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
 
     size_t entry_count = bc_containers_vector_length(state->entries);
     if (entry_count == 0) {
-        bc_hash_error_collector_flush_to_stderr(state->errors);
-        state->exit_code = bc_hash_error_collector_count(state->errors) == 0 ? 0 : 1;
+        bc_runtime_error_collector_flush_to_stderr(state->errors, "bc-hash");
+        state->exit_code = bc_runtime_error_collector_count(state->errors) == 0 ? 0 : 1;
         return true;
     }
 
@@ -367,9 +367,9 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
         fprintf(stderr, "bc-hash: hashed %zu files, %zu written to %s\n", entry_count, success_count, output_destination_label);
     }
 
-    bc_hash_error_collector_flush_to_stderr(state->errors);
+    bc_runtime_error_collector_flush_to_stderr(state->errors, "bc-hash");
 
-    size_t error_count = bc_hash_error_collector_count(state->errors);
+    size_t error_count = bc_runtime_error_collector_count(state->errors);
     state->exit_code = error_count == 0 ? 0 : 1;
     return true;
 }
@@ -404,7 +404,7 @@ static void bc_hash_application_cleanup(const bc_runtime_t* application, void* u
     }
 
     if (state->errors != NULL) {
-        bc_hash_error_collector_destroy(memory_context, state->errors);
+        bc_runtime_error_collector_destroy(memory_context, state->errors);
         state->errors = NULL;
     }
 }

@@ -25,7 +25,7 @@
 typedef struct bc_hash_walk_state {
     bc_allocators_context_t* memory_context;
     bc_containers_vector_t* entries;
-    bc_hash_error_collector_t* errors;
+    bc_runtime_error_collector_t* errors;
     bc_io_file_inode_set_t* visited_directories;
     bc_concurrency_signal_handler_t* signal_handler;
     const bc_hash_filter_t* filter;
@@ -48,7 +48,7 @@ static bool bc_hash_walk_append_entry(bc_hash_walk_state_t* state, const char* a
     }
     char* path_copy = NULL;
     if (!bc_allocators_pool_allocate(state->memory_context, absolute_path_length + 1, (void**)&path_copy)) {
-        bc_hash_error_collector_record(state->errors, state->memory_context, absolute_path, "allocate", ENOMEM);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, absolute_path, "allocate", ENOMEM);
         return false;
     }
     bc_core_copy(path_copy, absolute_path, absolute_path_length);
@@ -62,7 +62,7 @@ static bool bc_hash_walk_append_entry(bc_hash_walk_state_t* state, const char* a
 
     if (!bc_containers_vector_push(state->memory_context, state->entries, &entry)) {
         bc_allocators_pool_free(state->memory_context, path_copy);
-        bc_hash_error_collector_record(state->errors, state->memory_context, absolute_path, "enqueue", ENOMEM);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, absolute_path, "enqueue", ENOMEM);
         return false;
     }
     return true;
@@ -76,14 +76,14 @@ static bool bc_hash_walk_descend_child(bc_hash_walk_state_t* state, int parent_d
 {
     struct stat child_stat_buffer;
     if (fstatat(parent_directory_file_descriptor, child_name, &child_stat_buffer, AT_SYMLINK_NOFOLLOW) != 0) {
-        bc_hash_error_collector_record(state->errors, state->memory_context, child_absolute_path, "stat", errno);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, child_absolute_path, "stat", errno);
         return false;
     }
 
     bool was_already_present = false;
     if (!bc_io_file_inode_set_insert(state->visited_directories, child_stat_buffer.st_dev, child_stat_buffer.st_ino,
                                      &was_already_present)) {
-        bc_hash_error_collector_record(state->errors, state->memory_context, child_absolute_path, "dedup", ENOMEM);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, child_absolute_path, "dedup", ENOMEM);
         return false;
     }
     if (was_already_present) {
@@ -92,7 +92,7 @@ static bool bc_hash_walk_descend_child(bc_hash_walk_state_t* state, int parent_d
 
     int child_file_descriptor = openat(parent_directory_file_descriptor, child_name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (child_file_descriptor < 0) {
-        bc_hash_error_collector_record(state->errors, state->memory_context, child_absolute_path, "open", errno);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, child_absolute_path, "open", errno);
         return false;
     }
 
@@ -114,7 +114,7 @@ static bool bc_hash_walk_handle_entry(bc_hash_walk_state_t* state, int directory
     size_t child_path_length = 0;
     if (!bc_io_file_path_join(child_path_buffer, sizeof(child_path_buffer), directory_path, directory_path_length, entry_name,
                               entry_name_length, &child_path_length)) {
-        bc_hash_error_collector_record(state->errors, state->memory_context, directory_path, "path-too-long", ENAMETOOLONG);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, directory_path, "path-too-long", ENAMETOOLONG);
         return false;
     }
 
@@ -129,7 +129,7 @@ static bool bc_hash_walk_handle_entry(bc_hash_walk_state_t* state, int directory
         time_t modification_time_value = 0;
         if (!bc_io_file_stat_if_unknown(directory_file_descriptor, entry_name, &entry_type, &device_value, &inode_value,
                                         &resolved_file_size, &modification_time_value)) {
-            bc_hash_error_collector_record(state->errors, state->memory_context, child_path_buffer, "stat", errno);
+            bc_runtime_error_collector_append(state->errors, state->memory_context, child_path_buffer, "stat", errno);
             return true;
         }
         size_already_known = true;
@@ -143,7 +143,7 @@ static bool bc_hash_walk_handle_entry(bc_hash_walk_state_t* state, int directory
         if (!size_already_known) {
             struct stat file_stat_buffer;
             if (fstatat(directory_file_descriptor, entry_name, &file_stat_buffer, AT_SYMLINK_NOFOLLOW) != 0) {
-                bc_hash_error_collector_record(state->errors, state->memory_context, child_path_buffer, "stat", errno);
+                bc_runtime_error_collector_append(state->errors, state->memory_context, child_path_buffer, "stat", errno);
                 return true;
             }
             resolved_file_size = (size_t)file_stat_buffer.st_size;
@@ -169,13 +169,13 @@ static bool bc_hash_walk_directory(bc_hash_walk_state_t* state, int directory_fi
 {
     int duplicated_file_descriptor = dup(directory_file_descriptor);
     if (duplicated_file_descriptor < 0) {
-        bc_hash_error_collector_record(state->errors, state->memory_context, directory_path, "dup", errno);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, directory_path, "dup", errno);
         return false;
     }
     DIR* directory_stream = fdopendir(duplicated_file_descriptor);
     if (directory_stream == NULL) {
         close(duplicated_file_descriptor);
-        bc_hash_error_collector_record(state->errors, state->memory_context, directory_path, "fdopendir", errno);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, directory_path, "fdopendir", errno);
         return false;
     }
 
@@ -195,7 +195,7 @@ static bool bc_hash_walk_directory(bc_hash_walk_state_t* state, int directory_fi
     }
 
     if (errno != 0) {
-        bc_hash_error_collector_record(state->errors, state->memory_context, directory_path, "readdir", errno);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, directory_path, "readdir", errno);
     }
 
     closedir(directory_stream);
@@ -206,12 +206,12 @@ static bool bc_hash_walk_process_input_path(bc_hash_walk_state_t* state, const c
 {
     struct stat input_stat_buffer;
     if (fstatat(AT_FDCWD, input_path, &input_stat_buffer, AT_SYMLINK_NOFOLLOW) != 0) {
-        bc_hash_error_collector_record(state->errors, state->memory_context, input_path, "stat", errno);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, input_path, "stat", errno);
         return false;
     }
 
     if (S_ISLNK(input_stat_buffer.st_mode)) {
-        bc_hash_error_collector_record(state->errors, state->memory_context, input_path, "skip-symlink", ELOOP);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, input_path, "skip-symlink", ELOOP);
         return false;
     }
 
@@ -223,7 +223,7 @@ static bool bc_hash_walk_process_input_path(bc_hash_walk_state_t* state, const c
         bool was_already_present = false;
         if (!bc_io_file_inode_set_insert(state->visited_directories, input_stat_buffer.st_dev, input_stat_buffer.st_ino,
                                          &was_already_present)) {
-            bc_hash_error_collector_record(state->errors, state->memory_context, input_path, "dedup", ENOMEM);
+            bc_runtime_error_collector_append(state->errors, state->memory_context, input_path, "dedup", ENOMEM);
             return false;
         }
         if (was_already_present) {
@@ -232,7 +232,7 @@ static bool bc_hash_walk_process_input_path(bc_hash_walk_state_t* state, const c
 
         int directory_file_descriptor = open(input_path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
         if (directory_file_descriptor < 0) {
-            bc_hash_error_collector_record(state->errors, state->memory_context, input_path, "open", errno);
+            bc_runtime_error_collector_append(state->errors, state->memory_context, input_path, "open", errno);
             return false;
         }
 
@@ -246,7 +246,7 @@ static bool bc_hash_walk_process_input_path(bc_hash_walk_state_t* state, const c
         return descend_ok;
     }
 
-    bc_hash_error_collector_record(state->errors, state->memory_context, input_path, "skip-other", EINVAL);
+    bc_runtime_error_collector_append(state->errors, state->memory_context, input_path, "skip-other", EINVAL);
     return false;
 }
 
@@ -256,7 +256,7 @@ static bool bc_hash_walk_expand_glob(bc_hash_walk_state_t* state, const char* pa
     int glob_flags = GLOB_NOSORT | GLOB_NOCHECK | GLOB_NOMAGIC;
     int glob_result = glob(pattern, glob_flags, NULL, &glob_buffer);
     if (glob_result != 0) {
-        bc_hash_error_collector_record(state->errors, state->memory_context, pattern, "glob", EINVAL);
+        bc_runtime_error_collector_append(state->errors, state->memory_context, pattern, "glob", EINVAL);
         globfree(&glob_buffer);
         return false;
     }
@@ -268,7 +268,7 @@ static bool bc_hash_walk_expand_glob(bc_hash_walk_state_t* state, const char* pa
             bool pattern_has_metacharacter = false;
             bc_hash_discovery_glob_contains_metacharacter(pattern, &pattern_has_metacharacter);
             if (pattern_has_metacharacter && glob_buffer.gl_pathc == 1) {
-                bc_hash_error_collector_record(state->errors, state->memory_context, pattern, "glob-no-match", ENOENT);
+                bc_runtime_error_collector_append(state->errors, state->memory_context, pattern, "glob-no-match", ENOENT);
                 break;
             }
         }
@@ -280,7 +280,7 @@ static bool bc_hash_walk_expand_glob(bc_hash_walk_state_t* state, const char* pa
     return any_match;
 }
 
-bool bc_hash_discovery_expand(bc_allocators_context_t* memory_context, bc_containers_vector_t* entries, bc_hash_error_collector_t* errors,
+bool bc_hash_discovery_expand(bc_allocators_context_t* memory_context, bc_containers_vector_t* entries, bc_runtime_error_collector_t* errors,
                               bc_concurrency_signal_handler_t* signal_handler, const bc_hash_filter_t* filter, const char* const* input_paths,
                               size_t input_count)
 {
