@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-#include "bc_hash_dirent_internal.h"
+#include "bc_io_dirent_reader.h"
 #include "bc_hash_discovery_internal.h"
 #include "bc_hash_strings_internal.h"
 
@@ -117,13 +117,13 @@ static void bc_hash_walk_parallel_process_directory(bc_hash_walk_parallel_shared
         return;
     }
 
-    bc_hash_dirent_reader_t dirent_reader;
-    bc_hash_dirent_reader_init(&dirent_reader, directory_file_descriptor);
+    bc_io_dirent_reader_t dirent_reader;
+    bc_io_dirent_reader_init(&dirent_reader, directory_file_descriptor);
 
     for (;;) {
-        bc_hash_dirent_entry_t current_entry;
+        bc_io_dirent_entry_t current_entry;
         bool has_entry = false;
-        if (!bc_hash_dirent_reader_next(&dirent_reader, &current_entry, &has_entry)) {
+        if (!bc_io_dirent_reader_next(&dirent_reader, &current_entry, &has_entry)) {
             bc_hash_error_collector_record(worker_slot->errors, worker_memory, directory_path, "getdents64", dirent_reader.last_errno);
             break;
         }

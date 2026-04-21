@@ -15,7 +15,6 @@ bc_hash_sources = [
   'discovery/bc_hash_discovery_walk.c',
   'discovery/bc_hash_discovery_walk_parallel.c',
   'discovery/bc_hash_discovery_glob.c',
-  'discovery/bc_hash_dirent.c',
   'worker/bc_hash_worker_dispatch.c',
   'worker/bc_hash_worker_reader.c',
   'output/bc_hash_output_simple.c',
