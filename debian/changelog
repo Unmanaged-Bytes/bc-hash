@@ -1,3 +1,14 @@
+bc-hash (1.1.0-1) stable; urgency=medium
+
+  * Add libFuzzer harness infrastructure under fuzzing/ with harnesses
+    for cli_parse (argv through bc_hash_cli_program_spec) and
+    verify_parse (sha256sum-style + NDJSON digest files).
+  * Rebuilt against libbc-core 1.1.0 which carries the
+    count_lines_with_pattern shift-by-32 UB fix.
+  * No public CLI change.
+
+ -- Younes Benmoussa <younes.benmoussa@pm.me>  Wed, 22 Apr 2026 08:00:00 +0000
+
 bc-hash (1.0.3-1) stable; urgency=medium
 
   * perf(discovery): switch walk_parallel to raw syscall(SYS_getdents64)
