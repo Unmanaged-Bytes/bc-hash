@@ -24,6 +24,15 @@ if liburing_dep.found()
     ],
   )
   test('bc_hash_reader_uring_stress', test_bc_hash_reader_uring_stress, depends : [bc_hash_bin], timeout : 180)
+
+  test_bc_hash_reader_ring_growth = executable('test_bc_hash_reader_ring_growth',
+    'test_bc_hash_reader_ring_growth.c',
+    '../src/worker/bc_hash_worker_batch_uring.c',
+    '../src/worker/bc_hash_worker_reader.c',
+    include_directories : [bc_hash_internal_inc],
+    dependencies : [cmocka_dep, liburing_dep],
+  )
+  test('bc_hash_reader_ring_growth', test_bc_hash_reader_ring_growth, timeout : 30)
 endif
 
 test_bc_hash_throughput = executable('test_bc_hash_throughput',
