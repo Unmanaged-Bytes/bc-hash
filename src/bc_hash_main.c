@@ -326,7 +326,21 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
                     algorithm_name = "sha256";
                     break;
             }
-            snprintf(auto_output_path, sizeof(auto_output_path), "./bc-hash-%s.ndjson", algorithm_name);
+            const char* extension = "ndjson";
+            if (state->cli_options.output_format_mode == BC_HASH_OUTPUT_FORMAT_MODE_EXPLICIT) {
+                switch (state->cli_options.output_format) {
+                    case BC_HASH_OUTPUT_FORMAT_HRBL:
+                        extension = "hrbl";
+                        break;
+                    case BC_HASH_OUTPUT_FORMAT_JSON:
+                        extension = "ndjson";
+                        break;
+                    case BC_HASH_OUTPUT_FORMAT_SIMPLE:
+                        extension = "txt";
+                        break;
+                }
+            }
+            snprintf(auto_output_path, sizeof(auto_output_path), "./bc-hash-%s.%s", algorithm_name, extension);
             opened_output_file = fopen(auto_output_path, "w");
             if (opened_output_file == NULL) {
                 fprintf(stderr, "bc-hash: cannot open default output path '%s', falling back to stdout\n", auto_output_path);
@@ -358,6 +372,15 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
         }
     } else {
         output_format = BC_HASH_OUTPUT_FORMAT_SIMPLE;
+    }
+
+    if (output_format == BC_HASH_OUTPUT_FORMAT_HRBL
+        && opened_output_file == NULL
+        && state->cli_options.output_destination_mode == BC_HASH_OUTPUT_DESTINATION_AUTO
+        && isatty(fileno(stdout)) != 0) {
+        fputs("bc-hash: refusing to write binary HRBL to a terminal; pass --output=PATH (or --output=-) to opt in\n", stderr);
+        state->exit_code = 1;
+        return false;
     }
 
     bc_hash_output_context_t output_context = {

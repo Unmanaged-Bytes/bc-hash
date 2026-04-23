@@ -37,7 +37,7 @@ static const bc_runtime_cli_option_spec_t bc_hash_hash_options[] = {
         .type = BC_RUNTIME_CLI_OPTION_STRING,
         .default_value = "auto",
         .value_placeholder = "auto|-|PATH",
-        .help_summary = "output destination (file -> json, stdout -> sha256sum-style)",
+        .help_summary = "output destination (auto: stdout for <=20 files else ./bc-hash-<algo>.<ext>)",
     },
     {
         .long_name = "format",
