@@ -137,10 +137,10 @@ static bool bc_hash_output_hrbl_write_file_block(bc_hrbl_writer_t* writer,
     return bc_hrbl_writer_end_block(writer);
 }
 
-bool bc_hash_output_write_hrbl(FILE* output_stream, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
+bool bc_hash_output_write_hrbl(bc_core_writer_t* output_writer, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
                                const bc_hash_result_entry_t* results, const bc_hash_output_context_t* context);
 
-bool bc_hash_output_write_hrbl(FILE* output_stream, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
+bool bc_hash_output_write_hrbl(bc_core_writer_t* output_writer, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
                                const bc_hash_result_entry_t* results, const bc_hash_output_context_t* context)
 {
     bc_allocators_context_config_t allocator_config;
@@ -220,9 +220,8 @@ bool bc_hash_output_write_hrbl(FILE* output_stream, bc_hash_algorithm_t algorith
         goto cleanup;
     }
 
-    size_t written = fwrite(buffer, 1u, buffer_size, output_stream);
-    if (written != buffer_size) {
-        fprintf(stderr, "bc-hash: hrbl output: short write (%zu/%zu bytes)\n", written, buffer_size);
+    if (!bc_core_writer_write_bytes(output_writer, buffer, buffer_size)) {
+        fputs("bc-hash: hrbl output: writer failed\n", stderr);
         goto cleanup;
     }
     success = true;

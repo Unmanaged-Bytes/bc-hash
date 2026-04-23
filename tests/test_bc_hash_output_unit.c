@@ -7,12 +7,17 @@
 #include <cmocka.h>
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #include "bc_allocators.h"
 #include "bc_containers_vector.h"
+#include "bc_core_io.h"
 #include "bc_hash_output_internal.h"
 #include "bc_hash_types_internal.h"
 #include "bc_hrbl.h"
@@ -21,6 +26,44 @@ struct fixture {
     bc_allocators_context_t* memory_context;
     bc_containers_vector_t* entries;
 };
+
+static size_t capture_output(bc_hash_output_format_t format, bc_hash_algorithm_t algorithm,
+                             const bc_containers_vector_t* entries, const bc_hash_result_entry_t* results,
+                             const bc_hash_output_context_t* context, char* out_buffer, size_t capacity)
+{
+    int fd = (int)syscall(SYS_memfd_create, "bc-hash-test", 0);
+    if (fd < 0) {
+        return 0;
+    }
+    char writer_buffer[8192];
+    bc_core_writer_t writer;
+    if (!bc_core_writer_init(&writer, fd, writer_buffer, sizeof(writer_buffer))) {
+        close(fd);
+        return 0;
+    }
+    bc_hash_output_write(&writer, format, algorithm, entries, results, context);
+    bc_core_writer_destroy(&writer);
+
+    off_t length = lseek(fd, 0, SEEK_END);
+    if (length < 0) {
+        close(fd);
+        return 0;
+    }
+    if ((size_t)length > capacity) {
+        close(fd);
+        return 0;
+    }
+    lseek(fd, 0, SEEK_SET);
+    ssize_t read_bytes = read(fd, out_buffer, (size_t)length);
+    close(fd);
+    if (read_bytes < 0) {
+        return 0;
+    }
+    if ((size_t)read_bytes < capacity) {
+        out_buffer[read_bytes] = '\0';
+    }
+    return (size_t)read_bytes;
+}
 
 static int setup(void** state)
 {
@@ -66,10 +109,8 @@ static void test_simple_skips_unsuccessful_entries(void** state)
     results[1].success = false;
     results[1].errno_value = ENOENT;
 
-    char buffer[1024];
-    FILE* stream = fmemopen(buffer, sizeof(buffer), "w");
-    bc_hash_output_write(stream, BC_HASH_OUTPUT_FORMAT_SIMPLE, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, NULL);
-    fclose(stream);
+    char buffer[1024] = {0};
+    capture_output(BC_HASH_OUTPUT_FORMAT_SIMPLE, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, NULL, buffer, sizeof(buffer));
     assert_non_null(strstr(buffer, "/a"));
     assert_null(strstr(buffer, "/b"));
 }
@@ -82,10 +123,8 @@ static void test_simple_crc32(void** state)
     results[0].success = true;
     results[0].crc32_value = 0xdeadbeefu;
 
-    char buffer[256];
-    FILE* stream = fmemopen(buffer, sizeof(buffer), "w");
-    bc_hash_output_write(stream, BC_HASH_OUTPUT_FORMAT_SIMPLE, BC_HASH_ALGORITHM_CRC32, fixture->entries, results, NULL);
-    fclose(stream);
+    char buffer[256] = {0};
+    capture_output(BC_HASH_OUTPUT_FORMAT_SIMPLE, BC_HASH_ALGORITHM_CRC32, fixture->entries, results, NULL, buffer, sizeof(buffer));
     assert_non_null(strstr(buffer, "deadbeef"));
 }
 
@@ -97,10 +136,8 @@ static void test_simple_xxh3(void** state)
     results[0].success = true;
     for (size_t i = 0; i < BC_HASH_XXH3_DIGEST_SIZE; i++) results[0].xxh3_digest[i] = (uint8_t)(0x10 + i);
 
-    char buffer[256];
-    FILE* stream = fmemopen(buffer, sizeof(buffer), "w");
-    bc_hash_output_write(stream, BC_HASH_OUTPUT_FORMAT_SIMPLE, BC_HASH_ALGORITHM_XXH3, fixture->entries, results, NULL);
-    fclose(stream);
+    char buffer[256] = {0};
+    capture_output(BC_HASH_OUTPUT_FORMAT_SIMPLE, BC_HASH_ALGORITHM_XXH3, fixture->entries, results, NULL, buffer, sizeof(buffer));
     assert_non_null(strstr(buffer, "1011121314151617"));
 }
 
@@ -112,10 +149,8 @@ static void test_simple_xxh128(void** state)
     results[0].success = true;
     for (size_t i = 0; i < BC_HASH_XXH128_DIGEST_SIZE; i++) results[0].xxh128_digest[i] = (uint8_t)(0xA0 + i);
 
-    char buffer[256];
-    FILE* stream = fmemopen(buffer, sizeof(buffer), "w");
-    bc_hash_output_write(stream, BC_HASH_OUTPUT_FORMAT_SIMPLE, BC_HASH_ALGORITHM_XXH128, fixture->entries, results, NULL);
-    fclose(stream);
+    char buffer[256] = {0};
+    capture_output(BC_HASH_OUTPUT_FORMAT_SIMPLE, BC_HASH_ALGORITHM_XXH128, fixture->entries, results, NULL, buffer, sizeof(buffer));
     assert_non_null(strstr(buffer, "a0a1a2a3"));
 }
 
@@ -127,12 +162,10 @@ static void test_json_crc32(void** state)
     results[0].success = true;
     results[0].crc32_value = 0x12345678u;
 
-    char buffer[2048];
-    FILE* stream = fmemopen(buffer, sizeof(buffer), "w");
+    char buffer[2048] = {0};
     bc_hash_output_context_t context = {.tool_version = "test", .dispatch_mode = "parallel", .started_at_unix_ms = 1000, .wall_ms = 5,
                                          .worker_count = 2};
-    bc_hash_output_write(stream, BC_HASH_OUTPUT_FORMAT_JSON, BC_HASH_ALGORITHM_CRC32, fixture->entries, results, &context);
-    fclose(stream);
+    capture_output(BC_HASH_OUTPUT_FORMAT_JSON, BC_HASH_ALGORITHM_CRC32, fixture->entries, results, &context, buffer, sizeof(buffer));
     assert_non_null(strstr(buffer, "\"algorithm\":\"crc32\""));
     assert_non_null(strstr(buffer, "\"digest\":\"12345678\""));
 }
@@ -148,11 +181,9 @@ static void test_json_error_entry_emitted(void** state)
     results[1].success = false;
     results[1].errno_value = EIO;
 
-    char buffer[2048];
-    FILE* stream = fmemopen(buffer, sizeof(buffer), "w");
+    char buffer[2048] = {0};
     bc_hash_output_context_t context = {.tool_version = "test", .dispatch_mode = "sequential"};
-    bc_hash_output_write(stream, BC_HASH_OUTPUT_FORMAT_JSON, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, &context);
-    fclose(stream);
+    capture_output(BC_HASH_OUTPUT_FORMAT_JSON, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, &context, buffer, sizeof(buffer));
     assert_non_null(strstr(buffer, "\"ok\":true"));
     assert_non_null(strstr(buffer, "\"ok\":false"));
     assert_non_null(strstr(buffer, "\"files_error\":1"));
@@ -179,11 +210,9 @@ static void test_json_path_escape_all_chars(void** state)
     results[0].success = true;
     for (size_t i = 0; i < 32; i++) results[0].sha256_digest[i] = 0;
 
-    char buffer[2048];
-    FILE* stream = fmemopen(buffer, sizeof(buffer), "w");
+    char buffer[2048] = {0};
     bc_hash_output_context_t context = {.tool_version = "test", .dispatch_mode = "sequential"};
-    bc_hash_output_write(stream, BC_HASH_OUTPUT_FORMAT_JSON, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, &context);
-    fclose(stream);
+    capture_output(BC_HASH_OUTPUT_FORMAT_JSON, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, &context, buffer, sizeof(buffer));
     assert_non_null(strstr(buffer, "\\\""));
     assert_non_null(strstr(buffer, "\\\\"));
     assert_non_null(strstr(buffer, "\\b"));
@@ -202,10 +231,8 @@ static void test_json_null_context_uses_defaults(void** state)
     bc_hash_result_entry_t results[1] = {0};
     results[0].success = true;
 
-    char buffer[2048];
-    FILE* stream = fmemopen(buffer, sizeof(buffer), "w");
-    bc_hash_output_write(stream, BC_HASH_OUTPUT_FORMAT_JSON, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, NULL);
-    fclose(stream);
+    char buffer[2048] = {0};
+    capture_output(BC_HASH_OUTPUT_FORMAT_JSON, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, NULL, buffer, sizeof(buffer));
     assert_non_null(strstr(buffer, "\"type\":\"header\""));
     assert_non_null(strstr(buffer, "\"type\":\"summary\""));
     assert_non_null(strstr(buffer, "\"mode\":\"unknown\""));
@@ -222,13 +249,10 @@ static void test_hrbl_magic_and_roundtrip(void** state)
     results[1].success = false;
     results[1].errno_value = ENOENT;
 
-    char buffer[8192];
-    FILE* stream = fmemopen(buffer, sizeof(buffer), "w");
+    char buffer[8192] = {0};
     bc_hash_output_context_t context = {.tool_version = "1.2.0", .dispatch_mode = "parallel",
                                         .started_at_unix_ms = 1700000000000ULL, .wall_ms = 42, .worker_count = 8};
-    bc_hash_output_write(stream, BC_HASH_OUTPUT_FORMAT_HRBL, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, &context);
-    long written = ftell(stream);
-    fclose(stream);
+    size_t written = capture_output(BC_HASH_OUTPUT_FORMAT_HRBL, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, &context, buffer, sizeof(buffer));
     assert_true(written > 128);
     assert_int_equal((unsigned char)buffer[0], 'H');
     assert_int_equal((unsigned char)buffer[1], 'R');
@@ -236,7 +260,7 @@ static void test_hrbl_magic_and_roundtrip(void** state)
     assert_int_equal((unsigned char)buffer[3], 'L');
 
     bc_hrbl_reader_t* reader = NULL;
-    assert_true(bc_hrbl_reader_open_buffer(fixture->memory_context, buffer, (size_t)written, &reader));
+    assert_true(bc_hrbl_reader_open_buffer(fixture->memory_context, buffer, written, &reader));
 
     bc_hrbl_value_ref_t algorithm;
     assert_true(bc_hrbl_reader_find(reader, "bc_hash.algorithm", 17, &algorithm));
@@ -272,15 +296,12 @@ static void test_hrbl_file_entry_ok_and_error(void** state)
     results[1].success = false;
     results[1].errno_value = EACCES;
 
-    char buffer[4096];
-    FILE* stream = fmemopen(buffer, sizeof(buffer), "w");
+    char buffer[4096] = {0};
     bc_hash_output_context_t context = {.tool_version = "1.2.0", .dispatch_mode = "sequential"};
-    bc_hash_output_write(stream, BC_HASH_OUTPUT_FORMAT_HRBL, BC_HASH_ALGORITHM_XXH3, fixture->entries, results, &context);
-    long written = ftell(stream);
-    fclose(stream);
+    size_t written = capture_output(BC_HASH_OUTPUT_FORMAT_HRBL, BC_HASH_ALGORITHM_XXH3, fixture->entries, results, &context, buffer, sizeof(buffer));
 
     bc_hrbl_reader_t* reader = NULL;
-    assert_true(bc_hrbl_reader_open_buffer(fixture->memory_context, buffer, (size_t)written, &reader));
+    assert_true(bc_hrbl_reader_open_buffer(fixture->memory_context, buffer, written, &reader));
 
     bc_hrbl_value_ref_t ok_digest;
     assert_true(bc_hrbl_reader_find(reader, "bc_hash.files.ok_path.digest_hex", 32, &ok_digest));

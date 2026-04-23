@@ -20,6 +20,7 @@
 #include "bc_runtime.h"
 #include "bc_runtime_cli.h"
 
+#include <fcntl.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -292,23 +293,23 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
         fputs("bc-hash: interrupted by signal, partial results may be written\n", stderr);
     }
 
-    FILE* output_stream = stdout;
-    FILE* opened_output_file = NULL;
+    int output_fd = STDOUT_FILENO;
+    int opened_output_fd = -1;
     char auto_output_path[256];
     const char* output_destination_label = NULL;
     char output_buffer[BC_HASH_OUTPUT_BUFFER_BYTES];
 
     if (state->cli_options.output_destination_mode == BC_HASH_OUTPUT_DESTINATION_FILE) {
-        opened_output_file = fopen(state->cli_options.output_destination_path, "w");
-        if (opened_output_file == NULL) {
+        opened_output_fd = open(state->cli_options.output_destination_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (opened_output_fd < 0) {
             fprintf(stderr, "bc-hash: cannot open --output path '%s'\n", state->cli_options.output_destination_path);
             state->exit_code = 1;
             return false;
         }
-        output_stream = opened_output_file;
+        output_fd = opened_output_fd;
         output_destination_label = state->cli_options.output_destination_path;
     } else if (state->cli_options.output_destination_mode == BC_HASH_OUTPUT_DESTINATION_AUTO) {
-        bool stdout_is_terminal = isatty(fileno(stdout)) != 0;
+        bool stdout_is_terminal = isatty(STDOUT_FILENO) != 0;
         if (stdout_is_terminal && entry_count > BC_HASH_OUTPUT_STDOUT_THRESHOLD) {
             const char* algorithm_name;
             switch (state->cli_options.algorithm) {
@@ -341,22 +342,20 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
                 }
             }
             snprintf(auto_output_path, sizeof(auto_output_path), "./bc-hash-%s.%s", algorithm_name, extension);
-            opened_output_file = fopen(auto_output_path, "w");
-            if (opened_output_file == NULL) {
+            opened_output_fd = open(auto_output_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (opened_output_fd < 0) {
                 fprintf(stderr, "bc-hash: cannot open default output path '%s', falling back to stdout\n", auto_output_path);
             } else {
-                output_stream = opened_output_file;
+                output_fd = opened_output_fd;
                 output_destination_label = auto_output_path;
             }
         }
     }
 
-    (void)setvbuf(output_stream, output_buffer, _IOFBF, sizeof(output_buffer));
-
     bc_hash_output_format_t output_format;
     if (state->cli_options.output_format_mode == BC_HASH_OUTPUT_FORMAT_MODE_EXPLICIT) {
         output_format = state->cli_options.output_format;
-    } else if (opened_output_file != NULL) {
+    } else if (opened_output_fd >= 0) {
         output_format = BC_HASH_OUTPUT_FORMAT_JSON;
         const char* destination_path = output_destination_label;
         if (destination_path != NULL) {
@@ -375,9 +374,9 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
     }
 
     if (output_format == BC_HASH_OUTPUT_FORMAT_HRBL
-        && opened_output_file == NULL
+        && opened_output_fd < 0
         && state->cli_options.output_destination_mode == BC_HASH_OUTPUT_DESTINATION_AUTO
-        && isatty(fileno(stdout)) != 0) {
+        && isatty(STDOUT_FILENO) != 0) {
         fputs("bc-hash: refusing to write binary HRBL to a terminal; pass --output=PATH (or --output=-) to opt in\n", stderr);
         state->exit_code = 1;
         return false;
@@ -390,13 +389,20 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
         .dispatch_mode = should_go_multithread ? "parallel" : "sequential",
         .tool_version = BC_HASH_VERSION_STRING,
     };
-    bc_hash_output_write(output_stream, output_format, state->cli_options.algorithm, state->entries, state->results, &output_context);
 
-    if (opened_output_file != NULL) {
-        fflush(opened_output_file);
-        fclose(opened_output_file);
-    } else {
-        fflush(stdout);
+    bc_core_writer_t output_writer;
+    if (!bc_core_writer_init(&output_writer, output_fd, output_buffer, sizeof(output_buffer))) {
+        if (opened_output_fd >= 0) {
+            close(opened_output_fd);
+        }
+        state->exit_code = 1;
+        return false;
+    }
+    bc_hash_output_write(&output_writer, output_format, state->cli_options.algorithm, state->entries, state->results, &output_context);
+    (void)bc_core_writer_destroy(&output_writer);
+
+    if (opened_output_fd >= 0) {
+        close(opened_output_fd);
     }
 
     if (output_destination_label != NULL) {

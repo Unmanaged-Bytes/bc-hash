@@ -2,7 +2,7 @@
 
 #include "bc_hash_output_internal.h"
 
-#include <stdio.h>
+#include "bc_core.h"
 
 static const char bc_hash_output_hex_alphabet[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 
@@ -27,29 +27,29 @@ static void bc_hash_output_write_hex_crc32(uint32_t crc32_value, char* out_buffe
     out_buffer[BC_HASH_CRC32_HEX_LENGTH] = '\0';
 }
 
-bool bc_hash_output_write_simple(FILE* output_stream, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
+bool bc_hash_output_write_simple(bc_core_writer_t* writer, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
                                  const bc_hash_result_entry_t* results);
 
-bool bc_hash_output_write_json(FILE* output_stream, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
+bool bc_hash_output_write_json(bc_core_writer_t* writer, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
                                const bc_hash_result_entry_t* results, const bc_hash_output_context_t* context);
 
-bool bc_hash_output_write_hrbl(FILE* output_stream, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
+bool bc_hash_output_write_hrbl(bc_core_writer_t* writer, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
                                const bc_hash_result_entry_t* results, const bc_hash_output_context_t* context);
 
-bool bc_hash_output_write(FILE* output_stream, bc_hash_output_format_t format, bc_hash_algorithm_t algorithm,
+bool bc_hash_output_write(bc_core_writer_t* writer, bc_hash_output_format_t format, bc_hash_algorithm_t algorithm,
                           const bc_containers_vector_t* entries, const bc_hash_result_entry_t* results,
                           const bc_hash_output_context_t* context)
 {
     if (format == BC_HASH_OUTPUT_FORMAT_JSON) {
-        return bc_hash_output_write_json(output_stream, algorithm, entries, results, context);
+        return bc_hash_output_write_json(writer, algorithm, entries, results, context);
     }
     if (format == BC_HASH_OUTPUT_FORMAT_HRBL) {
-        return bc_hash_output_write_hrbl(output_stream, algorithm, entries, results, context);
+        return bc_hash_output_write_hrbl(writer, algorithm, entries, results, context);
     }
-    return bc_hash_output_write_simple(output_stream, algorithm, entries, results);
+    return bc_hash_output_write_simple(writer, algorithm, entries, results);
 }
 
-bool bc_hash_output_write_simple(FILE* output_stream, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
+bool bc_hash_output_write_simple(bc_core_writer_t* writer, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
                                  const bc_hash_result_entry_t* results)
 {
     size_t entry_count = bc_containers_vector_length(entries);
@@ -63,22 +63,38 @@ bool bc_hash_output_write_simple(FILE* output_stream, bc_hash_algorithm_t algori
         if (!bc_containers_vector_get(entries, index, &entry)) {
             continue;
         }
+        size_t hex_length = 0;
         switch (algorithm) {
             case BC_HASH_ALGORITHM_CRC32:
                 bc_hash_output_write_hex_crc32(results[index].crc32_value, hex_buffer);
+                hex_length = BC_HASH_CRC32_HEX_LENGTH;
                 break;
             case BC_HASH_ALGORITHM_XXH3:
                 bc_hash_output_encode_hex(results[index].xxh3_digest, BC_HASH_XXH3_DIGEST_SIZE, hex_buffer);
+                hex_length = BC_HASH_XXH3_HEX_LENGTH;
                 break;
             case BC_HASH_ALGORITHM_XXH128:
                 bc_hash_output_encode_hex(results[index].xxh128_digest, BC_HASH_XXH128_DIGEST_SIZE, hex_buffer);
+                hex_length = BC_HASH_XXH128_HEX_LENGTH;
                 break;
             case BC_HASH_ALGORITHM_SHA256:
             default:
                 bc_hash_output_encode_hex(results[index].sha256_digest, BC_CORE_SHA256_DIGEST_SIZE, hex_buffer);
+                hex_length = BC_HASH_SHA256_HEX_LENGTH;
                 break;
         }
-        fprintf(output_stream, "%s  %s\n", hex_buffer, entry.absolute_path);
+        if (!bc_core_writer_write_bytes(writer, hex_buffer, hex_length)) {
+            return false;
+        }
+        if (!BC_CORE_WRITER_PUTS(writer, "  ")) {
+            return false;
+        }
+        if (!bc_core_writer_write_bytes(writer, entry.absolute_path, entry.absolute_path_length)) {
+            return false;
+        }
+        if (!bc_core_writer_write_char(writer, '\n')) {
+            return false;
+        }
     }
     return true;
 }

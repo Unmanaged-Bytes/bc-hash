@@ -6,10 +6,10 @@
 #include "bc_hash_types_internal.h"
 
 #include "bc_containers_vector.h"
+#include "bc_core_io.h"
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 
 typedef struct bc_hash_output_context {
     uint64_t started_at_unix_ms;
@@ -19,7 +19,7 @@ typedef struct bc_hash_output_context {
     const char* tool_version;
 } bc_hash_output_context_t;
 
-bool bc_hash_output_write(FILE* output_stream, bc_hash_output_format_t format, bc_hash_algorithm_t algorithm,
+bool bc_hash_output_write(bc_core_writer_t* writer, bc_hash_output_format_t format, bc_hash_algorithm_t algorithm,
                           const bc_containers_vector_t* entries, const bc_hash_result_entry_t* results,
                           const bc_hash_output_context_t* context);
 
