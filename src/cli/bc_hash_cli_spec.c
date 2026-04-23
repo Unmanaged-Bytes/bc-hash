@@ -11,6 +11,8 @@
 
 static const char* const bc_hash_algorithm_values[] = {"crc32", "sha256", "xxh3", "xxh128", NULL};
 
+static const char* const bc_hash_format_values[] = {"auto", "simple", "json", "hrbl", NULL};
+
 static const bc_runtime_cli_option_spec_t bc_hash_global_options[] = {
     {
         .long_name = "threads",
@@ -36,6 +38,14 @@ static const bc_runtime_cli_option_spec_t bc_hash_hash_options[] = {
         .default_value = "auto",
         .value_placeholder = "auto|-|PATH",
         .help_summary = "output destination (file -> json, stdout -> sha256sum-style)",
+    },
+    {
+        .long_name = "format",
+        .type = BC_RUNTIME_CLI_OPTION_ENUM,
+        .allowed_values = bc_hash_format_values,
+        .default_value = "auto",
+        .value_placeholder = "auto|simple|json|hrbl",
+        .help_summary = "output format (auto picks by destination; hrbl is binary)",
     },
     {
         .long_name = "include",
@@ -166,6 +176,31 @@ static bool bc_hash_cli_bind_output(const char* value, bc_hash_output_destinatio
     return true;
 }
 
+static bool bc_hash_cli_bind_format(const char* value, bc_hash_output_format_mode_t* out_mode, bc_hash_output_format_t* out_format)
+{
+    if (bc_hash_strings_equal(value, "auto")) {
+        *out_mode = BC_HASH_OUTPUT_FORMAT_MODE_AUTO;
+        *out_format = BC_HASH_OUTPUT_FORMAT_SIMPLE;
+        return true;
+    }
+    if (bc_hash_strings_equal(value, "simple")) {
+        *out_mode = BC_HASH_OUTPUT_FORMAT_MODE_EXPLICIT;
+        *out_format = BC_HASH_OUTPUT_FORMAT_SIMPLE;
+        return true;
+    }
+    if (bc_hash_strings_equal(value, "json")) {
+        *out_mode = BC_HASH_OUTPUT_FORMAT_MODE_EXPLICIT;
+        *out_format = BC_HASH_OUTPUT_FORMAT_JSON;
+        return true;
+    }
+    if (bc_hash_strings_equal(value, "hrbl")) {
+        *out_mode = BC_HASH_OUTPUT_FORMAT_MODE_EXPLICIT;
+        *out_format = BC_HASH_OUTPUT_FORMAT_HRBL;
+        return true;
+    }
+    return false;
+}
+
 bool bc_hash_cli_bind_global_threads(const bc_runtime_config_store_t* store, bc_hash_threads_mode_t* out_mode, size_t* out_explicit_worker_count)
 {
     const char* threads_value = NULL;
@@ -205,6 +240,16 @@ bool bc_hash_cli_bind_options(const bc_runtime_config_store_t* store, const bc_r
     }
     if (!bc_hash_cli_bind_output(output_value, &out_options->output_destination_mode, &out_options->output_destination_path)) {
         fprintf(stderr, "bc-hash: invalid value for --output: '%s'\n", output_value);
+        return false;
+    }
+
+    const char* format_value = NULL;
+    if (!bc_runtime_config_store_get_string(store, "hash.format", &format_value)) {
+        fputs("bc-hash: internal error: missing hash.format\n", stderr);
+        return false;
+    }
+    if (!bc_hash_cli_bind_format(format_value, &out_options->output_format_mode, &out_options->output_format)) {
+        fprintf(stderr, "bc-hash: invalid value for --format: '%s'\n", format_value);
         return false;
     }
 

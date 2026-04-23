@@ -72,8 +72,9 @@ test_bc_hash_output_unit = executable('test_bc_hash_output_unit',
   'test_bc_hash_output_unit.c',
   '../src/output/bc_hash_output_simple.c',
   '../src/output/bc_hash_output_json.c',
+  '../src/output/bc_hash_output_hrbl.c',
   include_directories : [bc_hash_internal_inc],
-  dependencies : [cmocka_dep, bc_core_dep, bc_allocators_dep, bc_containers_dep],
+  dependencies : [cmocka_dep, bc_core_dep, bc_allocators_dep, bc_containers_dep, bc_hrbl_dep],
 )
 test('bc_hash_output_unit', test_bc_hash_output_unit)
 

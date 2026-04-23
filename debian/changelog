@@ -1,3 +1,16 @@
+bc-hash (1.2.0-1) stable; urgency=medium
+
+  * Add --format=auto|simple|json|hrbl option to select output format
+    explicitly. auto picks simple for stdout, hrbl for *.hrbl paths, json
+    otherwise (preserves 1.1.x default behavior).
+  * New HRBL binary output: structured tree rooted at bc_hash with
+    summary fields and a files sub-block keyed by absolute path.
+    Integrity-checked via bc-hrbl verify, programmatically navigable
+    via the bc-hrbl reader API.
+  * Build-Depends: libbc-hrbl-dev (>= 1.0.0).
+
+ -- Younes Benmoussa <younes.benmoussa@pm.me>  Thu, 23 Apr 2026 18:00:00 +0000
+
 bc-hash (1.1.1-1) stable; urgency=medium
 
   * chore(meson): declare minimum bc-* library versions (bc-core >= 1.3.0,

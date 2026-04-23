@@ -2,6 +2,26 @@
 
 All notable changes to bc-hash are documented here.
 
+## [1.2.0]
+
+### Added
+
+- **`--format` option** to select output format explicitly: `auto` (default),
+  `simple`, `json`, `hrbl`. Auto picks by destination: stdout → simple,
+  `*.hrbl` file → hrbl, other file → json (preserves 1.1.x behavior).
+- **HRBL binary output** via new `output/bc_hash_output_hrbl.c`. Writes a
+  single `.hrbl` block rooted at `bc_hash` with summary fields
+  (`algorithm`, `files_total`, `files_ok`, `bytes_total`, `wall_ms`,
+  `worker_count`, `dispatch_mode`, `schema_version`, `tool_version`,
+  `started_at_unix_ms`) and a `files` sub-block keyed by absolute path
+  holding `ok`, `digest_hex`, `size_bytes` (or `errno`, `error_message`
+  on failure). Integrity-checked via `bc-hrbl verify`, programmatically
+  navigable via the bc-hrbl reader API.
+
+### Dependencies
+
+- Build now depends on `libbc-hrbl-dev (>= 1.0.0)`.
+
 ## [1.0.2]
 
 ### Changed

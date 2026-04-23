@@ -27,6 +27,7 @@ typedef enum {
 typedef enum {
     BC_HASH_OUTPUT_FORMAT_SIMPLE = 0,
     BC_HASH_OUTPUT_FORMAT_JSON = 1,
+    BC_HASH_OUTPUT_FORMAT_HRBL = 2,
 } bc_hash_output_format_t;
 
 typedef enum {
@@ -41,12 +42,19 @@ typedef enum {
     BC_HASH_OUTPUT_DESTINATION_FILE = 2,
 } bc_hash_output_destination_mode_t;
 
+typedef enum {
+    BC_HASH_OUTPUT_FORMAT_MODE_AUTO = 0,
+    BC_HASH_OUTPUT_FORMAT_MODE_EXPLICIT = 1,
+} bc_hash_output_format_mode_t;
+
 typedef struct bc_hash_cli_options {
     bc_hash_algorithm_t algorithm;
     bc_hash_threads_mode_t threads_mode;
     size_t explicit_worker_count;
     bc_hash_output_destination_mode_t output_destination_mode;
     const char* output_destination_path;
+    bc_hash_output_format_mode_t output_format_mode;
+    bc_hash_output_format_t output_format;
     const char* include_list;
     const char* exclude_list;
     bool help_requested;

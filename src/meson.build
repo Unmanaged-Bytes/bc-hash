@@ -19,6 +19,7 @@ bc_hash_sources = [
   'worker/bc_hash_worker_reader.c',
   'output/bc_hash_output_simple.c',
   'output/bc_hash_output_json.c',
+  'output/bc_hash_output_hrbl.c',
   'verify/bc_hash_verify_parse.c',
   'verify/bc_hash_verify_run.c',
   'diff/bc_hash_diff.c',

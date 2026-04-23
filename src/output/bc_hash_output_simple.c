@@ -33,12 +33,18 @@ bool bc_hash_output_write_simple(FILE* output_stream, bc_hash_algorithm_t algori
 bool bc_hash_output_write_json(FILE* output_stream, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
                                const bc_hash_result_entry_t* results, const bc_hash_output_context_t* context);
 
+bool bc_hash_output_write_hrbl(FILE* output_stream, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
+                               const bc_hash_result_entry_t* results, const bc_hash_output_context_t* context);
+
 bool bc_hash_output_write(FILE* output_stream, bc_hash_output_format_t format, bc_hash_algorithm_t algorithm,
                           const bc_containers_vector_t* entries, const bc_hash_result_entry_t* results,
                           const bc_hash_output_context_t* context)
 {
     if (format == BC_HASH_OUTPUT_FORMAT_JSON) {
         return bc_hash_output_write_json(output_stream, algorithm, entries, results, context);
+    }
+    if (format == BC_HASH_OUTPUT_FORMAT_HRBL) {
+        return bc_hash_output_write_hrbl(output_stream, algorithm, entries, results, context);
     }
     return bc_hash_output_write_simple(output_stream, algorithm, entries, results);
 }

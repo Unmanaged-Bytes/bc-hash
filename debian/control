@@ -14,6 +14,7 @@ Build-Depends: debhelper-compat (= 13),
                libbc-io-dev (>= 1.1.0),
                libbc-concurrency-dev (>= 1.1.0),
                libbc-runtime-dev (>= 1.1.0),
+               libbc-hrbl-dev (>= 1.0.0),
                libcmocka-dev
 Standards-Version: 4.6.2
 Homepage: https://unmanaged-bytes.com/

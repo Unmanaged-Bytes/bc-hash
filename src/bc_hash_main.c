@@ -339,7 +339,26 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
 
     (void)setvbuf(output_stream, output_buffer, _IOFBF, sizeof(output_buffer));
 
-    bc_hash_output_format_t output_format = opened_output_file != NULL ? BC_HASH_OUTPUT_FORMAT_JSON : BC_HASH_OUTPUT_FORMAT_SIMPLE;
+    bc_hash_output_format_t output_format;
+    if (state->cli_options.output_format_mode == BC_HASH_OUTPUT_FORMAT_MODE_EXPLICIT) {
+        output_format = state->cli_options.output_format;
+    } else if (opened_output_file != NULL) {
+        output_format = BC_HASH_OUTPUT_FORMAT_JSON;
+        const char* destination_path = output_destination_label;
+        if (destination_path != NULL) {
+            size_t destination_length = 0u;
+            (void)bc_core_length(destination_path, 0u, &destination_length);
+            if (destination_length >= 5u) {
+                bool suffix_matches = false;
+                (void)bc_core_equal(destination_path + destination_length - 5u, ".hrbl", 5u, &suffix_matches);
+                if (suffix_matches) {
+                    output_format = BC_HASH_OUTPUT_FORMAT_HRBL;
+                }
+            }
+        }
+    } else {
+        output_format = BC_HASH_OUTPUT_FORMAT_SIMPLE;
+    }
 
     bc_hash_output_context_t output_context = {
         .started_at_unix_ms = started_at_unix_ms,

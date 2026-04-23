@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 
 project('bc-hash', 'c',
-  version : '1.1.1',
+  version : '1.2.0',
   license : 'MIT',
   default_options : [
     'c_std=c11',
@@ -54,6 +54,7 @@ bc_containers_dep  = dependency('bc-containers',  version : '>= 1.1.0')
 bc_concurrency_dep = dependency('bc-concurrency', version : '>= 1.1.0')
 bc_io_dep          = dependency('bc-io',          version : '>= 1.1.0')
 bc_runtime_dep     = dependency('bc-runtime',     version : '>= 1.1.0')
+bc_hrbl_dep        = dependency('bc-hrbl',        version : '>= 1.0.0')
 xxhash_dep         = dependency('libxxhash', version : '>=0.8.0')
 
 bc_hash_deps = [
@@ -63,6 +64,7 @@ bc_hash_deps = [
   bc_concurrency_dep,
   bc_io_dep,
   bc_runtime_dep,
+  bc_hrbl_dep,
   xxhash_dep,
 ]
 
