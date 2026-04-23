@@ -235,6 +235,7 @@ static void bc_hash_walk_parallel_worker_task(void* task_argument)
             return;
         }
         for (int spin = 0; spin < BC_HASH_WALK_PARALLEL_TERMINATION_SPIN_PAUSES; ++spin) {
+            bc_core_spin_pause();
         }
     }
 }
