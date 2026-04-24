@@ -31,7 +31,7 @@ jobs:
       - name: Fetch sibling .debs
         run: |
           mkdir -p deps
-          for repo in bc-core bc-allocators bc-containers bc-io bc-concurrency bc-runtime; do
+          for repo in bc-core bc-allocators bc-containers bc-concurrency bc-io bc-runtime bc-hrbl; do
             gh release download --repo "Unmanaged-Bytes/${repo}" --pattern '*.deb' --dir deps
           done
         env:
