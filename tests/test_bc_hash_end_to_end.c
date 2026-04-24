@@ -184,7 +184,8 @@ static void test_directory_recursion_hashes_all_files_and_skips_hidden_and_symli
     assert_int_equal(bc_hash_test_write_file(BC_HASH_TEST_FIXTURES_DIRECTORY "/tree/.hidden.bin", "abc", 3), 0);
 
     unlink(BC_HASH_TEST_FIXTURES_DIRECTORY "/tree/link_to_file.bin");
-    symlink(BC_HASH_TEST_FIXTURES_DIRECTORY "/tree/file_a.bin", BC_HASH_TEST_FIXTURES_DIRECTORY "/tree/link_to_file.bin");
+    int _sl_rc = symlink(BC_HASH_TEST_FIXTURES_DIRECTORY "/tree/file_a.bin", BC_HASH_TEST_FIXTURES_DIRECTORY "/tree/link_to_file.bin");
+    (void)_sl_rc;
 
     char output_buffer[BC_HASH_TEST_OUTPUT_BUFFER_SIZE];
     int exit_status = -1;
