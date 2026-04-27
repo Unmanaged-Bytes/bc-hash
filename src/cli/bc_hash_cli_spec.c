@@ -4,10 +4,12 @@
 #include "bc_hash_strings_internal.h"
 
 #include "bc_core.h"
+#include "bc_core_parse.h"
 #include "bc_runtime.h"
 #include "bc_runtime_cli.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 static const char* const bc_hash_algorithm_values[] = {"crc32", "sha256", "xxh3", "xxh128", NULL};
 
@@ -138,12 +140,16 @@ static bool bc_hash_cli_bind_threads(const char* value, bc_hash_threads_mode_t* 
         *out_explicit_worker_count = 0;
         return true;
     }
-    if (value[0] == '\0') {
+    const size_t value_length = strlen(value);
+    if (value_length == 0) {
         return false;
     }
-    char* end_pointer = NULL;
-    unsigned long parsed_value = strtoul(value, &end_pointer, 10);
-    if (end_pointer == value || *end_pointer != '\0') {
+    uint64_t parsed_value = 0;
+    size_t consumed = 0;
+    if (!bc_core_parse_unsigned_integer_64_decimal(value, value_length, &parsed_value, &consumed)) {
+        return false;
+    }
+    if (consumed != value_length) {
         return false;
     }
     if (parsed_value == 0) {
@@ -201,7 +207,8 @@ static bool bc_hash_cli_bind_format(const char* value, bc_hash_output_format_mod
     return false;
 }
 
-bool bc_hash_cli_bind_global_threads(const bc_runtime_config_store_t* store, bc_hash_threads_mode_t* out_mode, size_t* out_explicit_worker_count)
+bool bc_hash_cli_bind_global_threads(const bc_runtime_config_store_t* store, bc_hash_threads_mode_t* out_mode,
+                                     size_t* out_explicit_worker_count)
 {
     const char* threads_value = NULL;
     if (!bc_runtime_config_store_get_string(store, "global.threads", &threads_value)) {
@@ -215,7 +222,8 @@ bool bc_hash_cli_bind_global_threads(const bc_runtime_config_store_t* store, bc_
     return true;
 }
 
-bool bc_hash_cli_bind_options(const bc_runtime_config_store_t* store, const bc_runtime_cli_parsed_t* parsed, bc_hash_cli_options_t* out_options)
+bool bc_hash_cli_bind_options(const bc_runtime_config_store_t* store, const bc_runtime_cli_parsed_t* parsed,
+                              bc_hash_cli_options_t* out_options)
 {
     bc_core_zero(out_options, sizeof(*out_options));
 
