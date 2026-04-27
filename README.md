@@ -56,29 +56,13 @@ Benchmark, warm cache, Ryzen 7 5700G, 5 runs, /usr/share (148 370 files / 3.2 GB
   under `$XDG_CACHE_HOME/bc-hash/throughput.txt`.
 - `--threads=auto|0|N` to force a specific mode.
 
-## Install (Debian 13 trixie — production)
-
-Install the six sibling libraries first (each from its own GitHub
-Release), then download and install the `bc-hash` `.deb`:
-
-```bash
-for pkg in libbc-core-dev libbc-allocators-dev libbc-containers-dev \
-           libbc-io-dev libbc-concurrency-dev libbc-runtime-dev; do
-  sudo apt install "./${pkg}_X.Y.Z-1_amd64.deb"
-done
-sudo apt install ./bc-hash_X.Y.Z-1_amd64.deb
-bc-hash --version
-```
-
-The package installs the `bc-hash` binary to `/usr/bin/bc-hash`.
-
-## Development build (from source)
+## Build (from source)
 
 Requirements:
 
 - `meson >= 1.0`, `ninja-build`, `pkg-config`
 - `libxxhash-dev (>= 0.8.0)`, `liburing-dev (>= 2.5)`
-- The six `libbc-*-dev` sibling packages installed
+- bc-* sibling libs installed via `bc-install` (rolling)
 - `libcmocka-dev` for the test suite
 
 ```bash
