@@ -48,7 +48,8 @@ static int teardown(void** state)
     return 0;
 }
 
-static void populate_hash_defaults(bc_runtime_config_store_t* store, const char* type_value, const char* output_value, const char* threads_value)
+static void populate_hash_defaults(bc_runtime_config_store_t* store, const char* type_value, const char* output_value,
+                                   const char* threads_value)
 {
     const char* argv_template[8] = {"prog", NULL, NULL, NULL, NULL, NULL, NULL, NULL};
     char type_argument[64];
@@ -177,7 +178,8 @@ static void test_bind_options_all_algorithms(void** state)
         {"xxh3", NULL},
         {"xxh128", NULL},
     };
-    const bc_hash_algorithm_t expected[4] = {BC_HASH_ALGORITHM_CRC32, BC_HASH_ALGORITHM_SHA256, BC_HASH_ALGORITHM_XXH3, BC_HASH_ALGORITHM_XXH128};
+    const bc_hash_algorithm_t expected[4] = {BC_HASH_ALGORITHM_CRC32, BC_HASH_ALGORITHM_SHA256, BC_HASH_ALGORITHM_XXH3,
+                                             BC_HASH_ALGORITHM_XXH128};
     for (size_t i = 0; i < 4; i++) {
         bc_runtime_config_store_t* local_store = NULL;
         assert_true(bc_runtime_config_store_create(fixture->memory_context, &local_store));
@@ -244,6 +246,16 @@ static void test_bind_options_empty_threads_fails(void** state)
 {
     struct fixture* fixture = *state;
     assert_true(bc_runtime_config_store_set(fixture->store, "global.threads", ""));
+    bc_runtime_config_store_sort(fixture->store);
+    bc_hash_threads_mode_t mode;
+    size_t count;
+    assert_false(bc_hash_cli_bind_global_threads(fixture->store, &mode, &count));
+}
+
+static void test_bind_options_overflow_threads_fails(void** state)
+{
+    struct fixture* fixture = *state;
+    assert_true(bc_runtime_config_store_set(fixture->store, "global.threads", "99999999999999999999999"));
     bc_runtime_config_store_sort(fixture->store);
     bc_hash_threads_mode_t mode;
     size_t count;
@@ -322,6 +334,7 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_bind_options_invalid_threads_fails, setup, teardown),
         cmocka_unit_test_setup_teardown(test_bind_options_invalid_threads_trailing_garbage, setup, teardown),
         cmocka_unit_test_setup_teardown(test_bind_options_empty_threads_fails, setup, teardown),
+        cmocka_unit_test_setup_teardown(test_bind_options_overflow_threads_fails, setup, teardown),
         cmocka_unit_test_setup_teardown(test_bind_options_missing_type_fails, setup, teardown),
         cmocka_unit_test_setup_teardown(test_bind_options_invalid_type_fails, setup, teardown),
         cmocka_unit_test_setup_teardown(test_bind_options_missing_output_fails, setup, teardown),

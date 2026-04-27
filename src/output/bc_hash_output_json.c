@@ -45,7 +45,7 @@ static bool bc_hash_output_json_write_escaped_string(bc_core_writer_t* writer, c
             default:
                 if (byte_value < 0x20u) {
                     ok = BC_CORE_WRITER_PUTS(writer, "\\u")
-                         && bc_core_writer_write_uint64_hex_padded(writer, (uint64_t)byte_value, 4U);
+                         && bc_core_writer_write_unsigned_integer_64_hexadecimal_padded(writer, (uint64_t)byte_value, 4U);
                 } else {
                     ok = bc_core_writer_write_char(writer, (char)byte_value);
                 }
@@ -108,7 +108,7 @@ static bool bc_hash_output_json_write_hex_crc32(bc_core_writer_t* writer, uint32
     if (!bc_core_writer_write_char(writer, '"')) {
         return false;
     }
-    if (!bc_core_writer_write_uint64_hex_padded(writer, (uint64_t)crc32_value, BC_HASH_CRC32_HEX_LENGTH)) {
+    if (!bc_core_writer_write_unsigned_integer_64_hexadecimal_padded(writer, (uint64_t)crc32_value, BC_HASH_CRC32_HEX_LENGTH)) {
         return false;
     }
     return bc_core_writer_write_char(writer, '"');
@@ -145,7 +145,7 @@ static bool bc_hash_output_json_write_header(bc_core_writer_t* writer, bc_hash_a
     if (!BC_CORE_WRITER_PUTS(writer, ",\"schema_version\":")) {
         return false;
     }
-    if (!bc_core_writer_write_uint64_dec(writer, (uint64_t)BC_HASH_OUTPUT_JSON_SCHEMA_VERSION)) {
+    if (!bc_core_writer_write_unsigned_integer_64_decimal(writer, (uint64_t)BC_HASH_OUTPUT_JSON_SCHEMA_VERSION)) {
         return false;
     }
     if (!BC_CORE_WRITER_PUTS(writer, ",\"algorithm\":\"")) {
@@ -198,7 +198,7 @@ static bool bc_hash_output_json_write_entry_success(bc_core_writer_t* writer, bc
     if (!BC_CORE_WRITER_PUTS(writer, ",\"size_bytes\":")) {
         return false;
     }
-    if (!bc_core_writer_write_uint64_dec(writer, (uint64_t)entry->file_size)) {
+    if (!bc_core_writer_write_unsigned_integer_64_decimal(writer, (uint64_t)entry->file_size)) {
         return false;
     }
     return BC_CORE_WRITER_PUTS(writer, ",\"ok\":true}\n");
@@ -221,7 +221,7 @@ static bool bc_hash_output_json_write_entry_error(bc_core_writer_t* writer, cons
     if (!BC_CORE_WRITER_PUTS(writer, ",\"ok\":false,\"error\":{\"errno\":")) {
         return false;
     }
-    if (!bc_core_writer_write_int64(writer, (int64_t)errno_value)) {
+    if (!bc_core_writer_write_signed_integer_64(writer, (int64_t)errno_value)) {
         return false;
     }
     if (!BC_CORE_WRITER_PUTS(writer, ",\"message\":")) {
@@ -261,37 +261,37 @@ static bool bc_hash_output_json_write_summary(bc_core_writer_t* writer, const bc
     if (!BC_CORE_WRITER_PUTS(writer, "{\"type\":\"summary\",\"files_total\":")) {
         return false;
     }
-    if (!bc_core_writer_write_uint64_dec(writer, (uint64_t)entry_count)) {
+    if (!bc_core_writer_write_unsigned_integer_64_decimal(writer, (uint64_t)entry_count)) {
         return false;
     }
     if (!BC_CORE_WRITER_PUTS(writer, ",\"files_ok\":")) {
         return false;
     }
-    if (!bc_core_writer_write_uint64_dec(writer, (uint64_t)files_ok)) {
+    if (!bc_core_writer_write_unsigned_integer_64_decimal(writer, (uint64_t)files_ok)) {
         return false;
     }
     if (!BC_CORE_WRITER_PUTS(writer, ",\"files_error\":")) {
         return false;
     }
-    if (!bc_core_writer_write_uint64_dec(writer, (uint64_t)files_error)) {
+    if (!bc_core_writer_write_unsigned_integer_64_decimal(writer, (uint64_t)files_error)) {
         return false;
     }
     if (!BC_CORE_WRITER_PUTS(writer, ",\"bytes_total\":")) {
         return false;
     }
-    if (!bc_core_writer_write_uint64_dec(writer, bytes_total)) {
+    if (!bc_core_writer_write_unsigned_integer_64_decimal(writer, bytes_total)) {
         return false;
     }
     if (!BC_CORE_WRITER_PUTS(writer, ",\"wall_ms\":")) {
         return false;
     }
-    if (!bc_core_writer_write_uint64_dec(writer, wall_ms)) {
+    if (!bc_core_writer_write_unsigned_integer_64_decimal(writer, wall_ms)) {
         return false;
     }
     if (!BC_CORE_WRITER_PUTS(writer, ",\"workers\":")) {
         return false;
     }
-    if (!bc_core_writer_write_uint64_dec(writer, (uint64_t)worker_count)) {
+    if (!bc_core_writer_write_unsigned_integer_64_decimal(writer, (uint64_t)worker_count)) {
         return false;
     }
     if (!BC_CORE_WRITER_PUTS(writer, ",\"mode\":")) {
