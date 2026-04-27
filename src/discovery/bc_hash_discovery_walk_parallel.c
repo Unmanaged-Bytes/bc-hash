@@ -27,7 +27,7 @@
 typedef struct bc_hash_walk_worker_slot {
     bc_containers_vector_t* file_entries;
     bc_runtime_error_collector_t* errors;
-    char cache_line_padding[BC_CACHE_LINE_SIZE - 2 * sizeof(void*)];
+    BC_PAD_TO_CACHE_LINE(2 * sizeof(void*));
 } bc_hash_walk_worker_slot_t;
 
 typedef struct bc_hash_walk_context {
