@@ -107,6 +107,48 @@ static void test_bind_global_threads_mono(void** state)
     assert_int_equal(count, 0);
 }
 
+static void test_bind_global_threads_mono_keyword(void** state)
+{
+    struct fixture* fixture = *state;
+    const char* argv[] = {"bc-hash", "--threads=mono", "hash", "--type=sha256", "/path"};
+    bc_runtime_cli_parsed_t parsed;
+    FILE* err = fmemopen(NULL, 4096, "w");
+    assert_int_equal(bc_runtime_cli_parse(bc_hash_cli_program_spec(), 5, argv, fixture->store, &parsed, err), BC_RUNTIME_CLI_PARSE_OK);
+    fclose(err);
+
+    bc_hash_threads_mode_t mode = BC_HASH_THREADS_MODE_AUTO;
+    size_t count = 99;
+    assert_true(bc_hash_cli_bind_global_threads(fixture->store, &mode, &count));
+    assert_int_equal(mode, BC_HASH_THREADS_MODE_MONO);
+    assert_int_equal(count, 0);
+}
+
+static void test_bind_global_threads_io(void** state)
+{
+    struct fixture* fixture = *state;
+    const char* argv[] = {"bc-hash", "--threads=io", "hash", "--type=sha256", "/path"};
+    bc_runtime_cli_parsed_t parsed;
+    FILE* err = fmemopen(NULL, 4096, "w");
+    assert_int_equal(bc_runtime_cli_parse(bc_hash_cli_program_spec(), 5, argv, fixture->store, &parsed, err), BC_RUNTIME_CLI_PARSE_OK);
+    fclose(err);
+
+    bc_hash_threads_mode_t mode = BC_HASH_THREADS_MODE_AUTO;
+    size_t count = 99;
+    assert_true(bc_hash_cli_bind_global_threads(fixture->store, &mode, &count));
+    assert_int_equal(mode, BC_HASH_THREADS_MODE_IO);
+    assert_int_equal(count, 0);
+}
+
+static void test_bind_global_threads_auto_io_rejected(void** state)
+{
+    struct fixture* fixture = *state;
+    assert_true(bc_runtime_config_store_set(fixture->store, "global.threads", "auto-io"));
+    bc_runtime_config_store_sort(fixture->store);
+    bc_hash_threads_mode_t mode = BC_HASH_THREADS_MODE_AUTO;
+    size_t count = 0;
+    assert_false(bc_hash_cli_bind_global_threads(fixture->store, &mode, &count));
+}
+
 static void test_bind_global_threads_explicit(void** state)
 {
     struct fixture* fixture = *state;
@@ -324,6 +366,9 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(test_bind_global_threads_auto, setup, teardown),
         cmocka_unit_test_setup_teardown(test_bind_global_threads_mono, setup, teardown),
+        cmocka_unit_test_setup_teardown(test_bind_global_threads_mono_keyword, setup, teardown),
+        cmocka_unit_test_setup_teardown(test_bind_global_threads_io, setup, teardown),
+        cmocka_unit_test_setup_teardown(test_bind_global_threads_auto_io_rejected, setup, teardown),
         cmocka_unit_test_setup_teardown(test_bind_global_threads_explicit, setup, teardown),
         cmocka_unit_test_setup_teardown(test_bind_options_output_stdout, setup, teardown),
         cmocka_unit_test_setup_teardown(test_bind_options_output_path, setup, teardown),
