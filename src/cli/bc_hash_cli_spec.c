@@ -8,8 +8,33 @@
 #include "bc_runtime.h"
 #include "bc_runtime_cli.h"
 
-#include <stdlib.h>
-#include <string.h>
+#define BC_HASH_CLI_SPEC_STDERR_BUFFER_BYTES ((size_t)512)
+
+static void bc_hash_cli_spec_emit_stderr_cstring(const char* message)
+{
+    char stderr_buffer[BC_HASH_CLI_SPEC_STDERR_BUFFER_BYTES];
+    bc_core_writer_t stderr_writer;
+    if (!bc_core_writer_init_standard_error(&stderr_writer, stderr_buffer, sizeof(stderr_buffer))) {
+        return;
+    }
+    (void)bc_core_writer_write_cstring(&stderr_writer, message);
+    (void)bc_core_writer_destroy(&stderr_writer);
+}
+
+static void bc_hash_cli_spec_emit_stderr_invalid(const char* option, const char* value)
+{
+    char stderr_buffer[BC_HASH_CLI_SPEC_STDERR_BUFFER_BYTES];
+    bc_core_writer_t stderr_writer;
+    if (!bc_core_writer_init_standard_error(&stderr_writer, stderr_buffer, sizeof(stderr_buffer))) {
+        return;
+    }
+    (void)bc_core_writer_write_cstring(&stderr_writer, "bc-hash: invalid value for ");
+    (void)bc_core_writer_write_cstring(&stderr_writer, option);
+    (void)bc_core_writer_write_cstring(&stderr_writer, ": '");
+    (void)bc_core_writer_write_cstring(&stderr_writer, value);
+    (void)bc_core_writer_write_cstring(&stderr_writer, "'\n");
+    (void)bc_core_writer_destroy(&stderr_writer);
+}
 
 static const char* const bc_hash_algorithm_values[] = {"crc32", "sha256", "xxh3", "xxh128", NULL};
 
@@ -140,7 +165,8 @@ static bool bc_hash_cli_bind_threads(const char* value, bc_hash_threads_mode_t* 
         *out_explicit_worker_count = 0;
         return true;
     }
-    const size_t value_length = strlen(value);
+    size_t value_length = 0;
+    (void)bc_core_length(value, '\0', &value_length);
     if (value_length == 0) {
         return false;
     }
@@ -212,11 +238,11 @@ bool bc_hash_cli_bind_global_threads(const bc_runtime_config_store_t* store, bc_
 {
     const char* threads_value = NULL;
     if (!bc_runtime_config_store_get_string(store, "global.threads", &threads_value)) {
-        fputs("bc-hash: internal error: missing global.threads\n", stderr);
+        bc_hash_cli_spec_emit_stderr_cstring("bc-hash: internal error: missing global.threads\n");
         return false;
     }
     if (!bc_hash_cli_bind_threads(threads_value, out_mode, out_explicit_worker_count)) {
-        fprintf(stderr, "bc-hash: invalid value for --threads: '%s'\n", threads_value);
+        bc_hash_cli_spec_emit_stderr_invalid("--threads", threads_value);
         return false;
     }
     return true;
@@ -233,31 +259,31 @@ bool bc_hash_cli_bind_options(const bc_runtime_config_store_t* store, const bc_r
 
     const char* type_value = NULL;
     if (!bc_runtime_config_store_get_string(store, "hash.type", &type_value)) {
-        fputs("bc-hash: internal error: missing hash.type\n", stderr);
+        bc_hash_cli_spec_emit_stderr_cstring("bc-hash: internal error: missing hash.type\n");
         return false;
     }
     if (!bc_hash_cli_bind_algorithm(type_value, &out_options->algorithm)) {
-        fprintf(stderr, "bc-hash: invalid value for --type: '%s'\n", type_value);
+        bc_hash_cli_spec_emit_stderr_invalid("--type", type_value);
         return false;
     }
 
     const char* output_value = NULL;
     if (!bc_runtime_config_store_get_string(store, "hash.output", &output_value)) {
-        fputs("bc-hash: internal error: missing hash.output\n", stderr);
+        bc_hash_cli_spec_emit_stderr_cstring("bc-hash: internal error: missing hash.output\n");
         return false;
     }
     if (!bc_hash_cli_bind_output(output_value, &out_options->output_destination_mode, &out_options->output_destination_path)) {
-        fprintf(stderr, "bc-hash: invalid value for --output: '%s'\n", output_value);
+        bc_hash_cli_spec_emit_stderr_invalid("--output", output_value);
         return false;
     }
 
     const char* format_value = NULL;
     if (!bc_runtime_config_store_get_string(store, "hash.format", &format_value)) {
-        fputs("bc-hash: internal error: missing hash.format\n", stderr);
+        bc_hash_cli_spec_emit_stderr_cstring("bc-hash: internal error: missing hash.format\n");
         return false;
     }
     if (!bc_hash_cli_bind_format(format_value, &out_options->output_format_mode, &out_options->output_format)) {
-        fprintf(stderr, "bc-hash: invalid value for --format: '%s'\n", format_value);
+        bc_hash_cli_spec_emit_stderr_invalid("--format", format_value);
         return false;
     }
 

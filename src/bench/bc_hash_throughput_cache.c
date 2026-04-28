@@ -10,7 +10,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -19,48 +18,78 @@
 
 #define BC_HASH_THROUGHPUT_CACHE_SIGNATURE_CAPACITY ((size_t)256)
 #define BC_HASH_THROUGHPUT_CACHE_LINE_CAPACITY ((size_t)512)
+#define BC_HASH_THROUGHPUT_CACHE_READER_BUFFER_BYTES ((size_t)4096)
+#define BC_HASH_THROUGHPUT_CACHE_WRITER_BUFFER_BYTES ((size_t)1024)
+
+static bool bc_hash_throughput_cache_copy_value_into(char* destination, size_t destination_capacity, const char* source)
+{
+    size_t source_length = bc_hash_strings_length(source);
+    if (destination_capacity == 0) {
+        return false;
+    }
+    size_t copy_length = source_length < destination_capacity - 1 ? source_length : destination_capacity - 1;
+    if (copy_length > 0) {
+        bc_core_copy(destination, source, copy_length);
+    }
+    destination[copy_length] = '\0';
+    return true;
+}
 
 static bool bc_hash_throughput_cache_read_cpuinfo_field(const char* field_name, char* out_value, size_t value_capacity)
 {
-    FILE* stream = fopen("/proc/cpuinfo", "r");
-    if (stream == NULL) {
+    int file_descriptor = open("/proc/cpuinfo", O_RDONLY | O_CLOEXEC);
+    if (file_descriptor < 0) {
         return false;
     }
-    char line_buffer[BC_HASH_THROUGHPUT_CACHE_LINE_CAPACITY];
+    char reader_buffer[BC_HASH_THROUGHPUT_CACHE_READER_BUFFER_BYTES];
+    bc_core_reader_t reader;
+    if (!bc_core_reader_init(&reader, file_descriptor, reader_buffer, sizeof(reader_buffer))) {
+        close(file_descriptor);
+        return false;
+    }
     size_t field_name_length = bc_hash_strings_length(field_name);
     bool found = false;
-    while (fgets(line_buffer, sizeof(line_buffer), stream) != NULL) {
-        if (!bc_hash_strings_starts_with(line_buffer, field_name, field_name_length)) {
+    const char* line_data = NULL;
+    size_t line_length = 0;
+    while (bc_core_reader_read_line(&reader, &line_data, &line_length)) {
+        if (line_length < field_name_length) {
             continue;
         }
-        const char* cursor = line_buffer + field_name_length;
-        while (*cursor == ' ' || *cursor == '\t') {
+        bool field_matches = false;
+        (void)bc_core_starts_with(line_data, line_length, field_name, field_name_length, &field_matches);
+        if (!field_matches) {
+            continue;
+        }
+        size_t cursor = field_name_length;
+        while (cursor < line_length && (line_data[cursor] == ' ' || line_data[cursor] == '\t')) {
             cursor += 1;
         }
-        if (*cursor != ':') {
+        if (cursor >= line_length || line_data[cursor] != ':') {
             continue;
         }
         cursor += 1;
-        while (*cursor == ' ' || *cursor == '\t') {
+        while (cursor < line_length && (line_data[cursor] == ' ' || line_data[cursor] == '\t')) {
             cursor += 1;
         }
         size_t copied = 0;
-        while (*cursor != '\n' && *cursor != '\0' && copied + 1 < value_capacity) {
-            out_value[copied] = *cursor;
+        while (cursor < line_length && copied + 1 < value_capacity) {
+            out_value[copied] = line_data[cursor];
             cursor += 1;
             copied += 1;
         }
-        out_value[copied] = '\0';
+        if (value_capacity > 0) {
+            out_value[copied] = '\0';
+        }
         found = true;
         break;
     }
-    fclose(stream);
+    (void)bc_core_reader_destroy(&reader);
+    close(file_descriptor);
     return found;
 }
 
-bool bc_hash_throughput_cache_read_host_signature(char* out_cpu_model, size_t cpu_model_capacity,
-                                                  char* out_microcode, size_t microcode_capacity,
-                                                  char* out_kernel_version, size_t kernel_version_capacity)
+bool bc_hash_throughput_cache_read_host_signature(char* out_cpu_model, size_t cpu_model_capacity, char* out_microcode,
+                                                  size_t microcode_capacity, char* out_kernel_version, size_t kernel_version_capacity)
 {
     if (!bc_hash_throughput_cache_read_cpuinfo_field("model name", out_cpu_model, cpu_model_capacity)) {
         return false;
@@ -92,19 +121,16 @@ static bool bc_hash_throughput_cache_parse_double(const char* value_text, double
     return true;
 }
 
-static size_t bc_hash_throughput_cache_line_length(const char* line_buffer, size_t buffer_capacity)
-{
-    size_t length = 0;
-    while (length < buffer_capacity && line_buffer[length] != '\0') {
-        length += 1;
-    }
-    return length;
-}
-
 bool bc_hash_throughput_cache_load(const char* absolute_cache_path, bc_hash_throughput_constants_t* out_constants)
 {
-    FILE* stream = fopen(absolute_cache_path, "r");
-    if (stream == NULL) {
+    int file_descriptor = open(absolute_cache_path, O_RDONLY | O_CLOEXEC);
+    if (file_descriptor < 0) {
+        return false;
+    }
+    char reader_buffer[BC_HASH_THROUGHPUT_CACHE_READER_BUFFER_BYTES];
+    bc_core_reader_t reader;
+    if (!bc_core_reader_init(&reader, file_descriptor, reader_buffer, sizeof(reader_buffer))) {
+        close(file_descriptor);
         return false;
     }
 
@@ -117,41 +143,88 @@ bool bc_hash_throughput_cache_load(const char* absolute_cache_path, bc_hash_thro
     bool parallel_startup_ok = false;
     bool per_file_cost_ok = false;
 
-    char line_buffer[BC_HASH_THROUGHPUT_CACHE_LINE_CAPACITY];
-    while (fgets(line_buffer, sizeof(line_buffer), stream) != NULL) {
-        size_t line_length = bc_hash_throughput_cache_line_length(line_buffer, sizeof(line_buffer));
-        char* newline_position = bc_hash_strings_find_byte(line_buffer, line_length, '\n');
-        if (newline_position != NULL) {
-            *newline_position = '\0';
-            line_length = (size_t)(newline_position - line_buffer);
-        }
-        char* separator_position = bc_hash_strings_find_byte(line_buffer, line_length, '=');
-        if (separator_position == NULL) {
+    const char* line_data = NULL;
+    size_t line_length = 0;
+    char value_terminated[BC_HASH_THROUGHPUT_CACHE_LINE_CAPACITY];
+
+    while (bc_core_reader_read_line(&reader, &line_data, &line_length)) {
+        size_t separator_offset = 0;
+        if (!bc_core_find_byte(line_data, line_length, (unsigned char)'=', &separator_offset)) {
             continue;
         }
-        *separator_position = '\0';
-        const char* key = line_buffer;
-        const char* value = separator_position + 1;
+        size_t value_start = separator_offset + 1;
+        size_t value_length = line_length > value_start ? line_length - value_start : 0;
+        if (value_length + 1 > sizeof(value_terminated)) {
+            value_length = sizeof(value_terminated) - 1;
+        }
+        if (value_length > 0) {
+            bc_core_copy(value_terminated, line_data + value_start, value_length);
+        }
+        value_terminated[value_length] = '\0';
 
-        if (bc_hash_strings_equal(key, "cpu_model")) {
-            snprintf(cached_cpu_model, sizeof(cached_cpu_model), "%s", value);
-        } else if (bc_hash_strings_equal(key, "microcode")) {
-            snprintf(cached_microcode, sizeof(cached_microcode), "%s", value);
-        } else if (bc_hash_strings_equal(key, "kernel_version")) {
-            snprintf(cached_kernel_version, sizeof(cached_kernel_version), "%s", value);
-        } else if (bc_hash_strings_equal(key, "sha256_gbps")) {
-            sha256_ok = bc_hash_throughput_cache_parse_double(value, &out_constants->sha256_gigabytes_per_second);
-        } else if (bc_hash_strings_equal(key, "crc32c_gbps")) {
-            crc32c_ok = bc_hash_throughput_cache_parse_double(value, &out_constants->crc32c_gigabytes_per_second);
-        } else if (bc_hash_strings_equal(key, "mem_bw_gbps")) {
-            memory_bandwidth_ok = bc_hash_throughput_cache_parse_double(value, &out_constants->memory_bandwidth_gigabytes_per_second);
-        } else if (bc_hash_strings_equal(key, "parallel_startup_us")) {
-            parallel_startup_ok = bc_hash_throughput_cache_parse_double(value, &out_constants->parallel_startup_overhead_microseconds);
-        } else if (bc_hash_strings_equal(key, "per_file_cost_us")) {
-            per_file_cost_ok = bc_hash_throughput_cache_parse_double(value, &out_constants->per_file_cost_warm_microseconds);
+        bool key_equal = false;
+        (void)bc_core_equal(line_data, "cpu_model", separator_offset == 9 ? 9u : separator_offset, &key_equal);
+        if (separator_offset == 9 && key_equal) {
+            (void)bc_hash_throughput_cache_copy_value_into(cached_cpu_model, sizeof(cached_cpu_model), value_terminated);
+            continue;
+        }
+        key_equal = false;
+        if (separator_offset == 9) {
+            (void)bc_core_equal(line_data, "microcode", 9u, &key_equal);
+            if (key_equal) {
+                (void)bc_hash_throughput_cache_copy_value_into(cached_microcode, sizeof(cached_microcode), value_terminated);
+                continue;
+            }
+        }
+        if (separator_offset == 14) {
+            key_equal = false;
+            (void)bc_core_equal(line_data, "kernel_version", 14u, &key_equal);
+            if (key_equal) {
+                (void)bc_hash_throughput_cache_copy_value_into(cached_kernel_version, sizeof(cached_kernel_version), value_terminated);
+                continue;
+            }
+        }
+        if (separator_offset == 11) {
+            key_equal = false;
+            (void)bc_core_equal(line_data, "sha256_gbps", 11u, &key_equal);
+            if (key_equal) {
+                sha256_ok = bc_hash_throughput_cache_parse_double(value_terminated, &out_constants->sha256_gigabytes_per_second);
+                continue;
+            }
+            key_equal = false;
+            (void)bc_core_equal(line_data, "crc32c_gbps", 11u, &key_equal);
+            if (key_equal) {
+                crc32c_ok = bc_hash_throughput_cache_parse_double(value_terminated, &out_constants->crc32c_gigabytes_per_second);
+                continue;
+            }
+            key_equal = false;
+            (void)bc_core_equal(line_data, "mem_bw_gbps", 11u, &key_equal);
+            if (key_equal) {
+                memory_bandwidth_ok =
+                    bc_hash_throughput_cache_parse_double(value_terminated, &out_constants->memory_bandwidth_gigabytes_per_second);
+                continue;
+            }
+        }
+        if (separator_offset == 19) {
+            key_equal = false;
+            (void)bc_core_equal(line_data, "parallel_startup_us", 19u, &key_equal);
+            if (key_equal) {
+                parallel_startup_ok =
+                    bc_hash_throughput_cache_parse_double(value_terminated, &out_constants->parallel_startup_overhead_microseconds);
+                continue;
+            }
+        }
+        if (separator_offset == 16) {
+            key_equal = false;
+            (void)bc_core_equal(line_data, "per_file_cost_us", 16u, &key_equal);
+            if (key_equal) {
+                per_file_cost_ok = bc_hash_throughput_cache_parse_double(value_terminated, &out_constants->per_file_cost_warm_microseconds);
+                continue;
+            }
         }
     }
-    fclose(stream);
+    (void)bc_core_reader_destroy(&reader);
+    close(file_descriptor);
 
     if (!sha256_ok || !crc32c_ok || !memory_bandwidth_ok || !parallel_startup_ok || !per_file_cost_ok) {
         return false;
@@ -179,9 +252,15 @@ bool bc_hash_throughput_cache_load(const char* absolute_cache_path, bc_hash_thro
 static bool bc_hash_throughput_cache_ensure_parent_directory(const char* absolute_cache_path)
 {
     char directory_path[BC_HASH_THROUGHPUT_CACHE_LINE_CAPACITY];
-    snprintf(directory_path, sizeof(directory_path), "%s", absolute_cache_path);
-    size_t directory_path_length = bc_hash_strings_length(directory_path);
-    char* last_slash = bc_hash_strings_find_last_byte(directory_path, directory_path_length, '/');
+    size_t source_length = bc_hash_strings_length(absolute_cache_path);
+    if (source_length + 1 > sizeof(directory_path)) {
+        return false;
+    }
+    if (source_length > 0) {
+        bc_core_copy(directory_path, absolute_cache_path, source_length);
+    }
+    directory_path[source_length] = '\0';
+    char* last_slash = bc_hash_strings_find_last_byte(directory_path, source_length, '/');
     if (last_slash == NULL || last_slash == directory_path) {
         return true;
     }
@@ -207,39 +286,70 @@ bool bc_hash_throughput_cache_store(const char* absolute_cache_path, const bc_ha
                                                       sizeof(kernel_version))) {
         return false;
     }
-    FILE* stream = fopen(absolute_cache_path, "w");
-    if (stream == NULL) {
+    int file_descriptor = open(absolute_cache_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (file_descriptor < 0) {
         return false;
     }
-    int printed = fprintf(stream,
-                          "cpu_model=%s\n"
-                          "microcode=%s\n"
-                          "kernel_version=%s\n"
-                          "sha256_gbps=%.6f\n"
-                          "crc32c_gbps=%.6f\n"
-                          "mem_bw_gbps=%.6f\n"
-                          "parallel_startup_us=%.6f\n"
-                          "per_file_cost_us=%.6f\n",
-                          cpu_model, microcode, kernel_version, constants->sha256_gigabytes_per_second,
-                          constants->crc32c_gigabytes_per_second, constants->memory_bandwidth_gigabytes_per_second,
-                          constants->parallel_startup_overhead_microseconds, constants->per_file_cost_warm_microseconds);
-    int close_status = fclose(stream);
-    return printed > 0 && close_status == 0;
+    char writer_buffer[BC_HASH_THROUGHPUT_CACHE_WRITER_BUFFER_BYTES];
+    bc_core_writer_t writer;
+    if (!bc_core_writer_init(&writer, file_descriptor, writer_buffer, sizeof(writer_buffer))) {
+        close(file_descriptor);
+        return false;
+    }
+    (void)bc_core_writer_write_cstring(&writer, "cpu_model=");
+    (void)bc_core_writer_write_cstring(&writer, cpu_model);
+    (void)bc_core_writer_write_cstring(&writer, "\nmicrocode=");
+    (void)bc_core_writer_write_cstring(&writer, microcode);
+    (void)bc_core_writer_write_cstring(&writer, "\nkernel_version=");
+    (void)bc_core_writer_write_cstring(&writer, kernel_version);
+    (void)bc_core_writer_write_cstring(&writer, "\nsha256_gbps=");
+    (void)bc_core_writer_write_double(&writer, constants->sha256_gigabytes_per_second, 6);
+    (void)bc_core_writer_write_cstring(&writer, "\ncrc32c_gbps=");
+    (void)bc_core_writer_write_double(&writer, constants->crc32c_gigabytes_per_second, 6);
+    (void)bc_core_writer_write_cstring(&writer, "\nmem_bw_gbps=");
+    (void)bc_core_writer_write_double(&writer, constants->memory_bandwidth_gigabytes_per_second, 6);
+    (void)bc_core_writer_write_cstring(&writer, "\nparallel_startup_us=");
+    (void)bc_core_writer_write_double(&writer, constants->parallel_startup_overhead_microseconds, 6);
+    (void)bc_core_writer_write_cstring(&writer, "\nper_file_cost_us=");
+    (void)bc_core_writer_write_double(&writer, constants->per_file_cost_warm_microseconds, 6);
+    (void)bc_core_writer_write_char(&writer, '\n');
+    bool error_occurred = bc_core_writer_has_error(&writer);
+    (void)bc_core_writer_destroy(&writer);
+    int close_status = close(file_descriptor);
+    return !error_occurred && close_status == 0;
 }
 
 static bool bc_hash_throughput_cache_default_path(char* out_path, size_t path_capacity)
 {
-    const char* xdg_cache_home = getenv("XDG_CACHE_HOME");
-    if (xdg_cache_home != NULL && xdg_cache_home[0] != '\0') {
-        int written = snprintf(out_path, path_capacity, "%s/bc-hash/throughput.txt", xdg_cache_home);
-        return written > 0 && (size_t)written < path_capacity;
-    }
-    const char* home = getenv("HOME");
-    if (home == NULL || home[0] == '\0') {
+    if (path_capacity == 0) {
         return false;
     }
-    int written = snprintf(out_path, path_capacity, "%s/.cache/bc-hash/throughput.txt", home);
-    return written > 0 && (size_t)written < path_capacity;
+    const char* xdg_cache_home = getenv("XDG_CACHE_HOME");
+    bc_core_writer_t path_writer;
+    if (xdg_cache_home != NULL && xdg_cache_home[0] != '\0') {
+        if (!bc_core_writer_init_buffer_only(&path_writer, out_path, path_capacity - 1)) {
+            return false;
+        }
+        (void)bc_core_writer_write_cstring(&path_writer, xdg_cache_home);
+        (void)bc_core_writer_write_cstring(&path_writer, "/bc-hash/throughput.txt");
+    } else {
+        const char* home = getenv("HOME");
+        if (home == NULL || home[0] == '\0') {
+            return false;
+        }
+        if (!bc_core_writer_init_buffer_only(&path_writer, out_path, path_capacity - 1)) {
+            return false;
+        }
+        (void)bc_core_writer_write_cstring(&path_writer, home);
+        (void)bc_core_writer_write_cstring(&path_writer, "/.cache/bc-hash/throughput.txt");
+    }
+    bool error_occurred = bc_core_writer_has_error(&path_writer);
+    const char* path_data = NULL;
+    size_t path_length = 0;
+    (void)bc_core_writer_buffer_data(&path_writer, &path_data, &path_length);
+    out_path[path_length] = '\0';
+    (void)bc_core_writer_destroy(&path_writer);
+    return !error_occurred && path_length > 0;
 }
 
 bool bc_hash_throughput_get_or_measure(bc_concurrency_context_t* concurrency_context, bc_hash_throughput_constants_t* out_constants)

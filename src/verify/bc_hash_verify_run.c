@@ -9,40 +9,54 @@
 
 #include <errno.h>
 #include <stddef.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #define BC_HASH_VERIFY_EXIT_CODE_OK 0
 #define BC_HASH_VERIFY_EXIT_CODE_MISMATCH 1
+#define BC_HASH_VERIFY_RUN_STDOUT_BUFFER_BYTES ((size_t)(64 * 1024))
+#define BC_HASH_VERIFY_RUN_STDERR_BUFFER_BYTES ((size_t)512)
+
+static bool bc_hash_verify_run_strings_equal_terminated(const char* left, const char* right)
+{
+    size_t left_length = 0;
+    size_t right_length = 0;
+    (void)bc_core_length(left, '\0', &left_length);
+    (void)bc_core_length(right, '\0', &right_length);
+    if (left_length != right_length) {
+        return false;
+    }
+    bool equal = false;
+    (void)bc_core_equal(left, right, left_length, &equal);
+    return equal;
+}
 
 static void bc_hash_verify_compute_result_hex(bc_hash_algorithm_t algorithm, const bc_hash_result_entry_t* result, char* out_hex_buffer)
 {
     static const char bc_hash_verify_hex_alphabet[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 
     switch (algorithm) {
-        case BC_HASH_ALGORITHM_CRC32: {
-            uint32_t crc32_value = result->crc32_value;
-            for (size_t index = 0; index < BC_HASH_CRC32_HEX_LENGTH; ++index) {
-                size_t shift_bits = 28u - (index * 4u);
-                uint32_t nibble = (crc32_value >> shift_bits) & 0xFu;
-                out_hex_buffer[index] = bc_hash_verify_hex_alphabet[nibble];
-            }
-            out_hex_buffer[BC_HASH_CRC32_HEX_LENGTH] = '\0';
-            return;
+    case BC_HASH_ALGORITHM_CRC32: {
+        uint32_t crc32_value = result->crc32_value;
+        for (size_t index = 0; index < BC_HASH_CRC32_HEX_LENGTH; ++index) {
+            size_t shift_bits = 28u - (index * 4u);
+            uint32_t nibble = (crc32_value >> shift_bits) & 0xFu;
+            out_hex_buffer[index] = bc_hash_verify_hex_alphabet[nibble];
         }
-        case BC_HASH_ALGORITHM_XXH3:
-            bc_hash_output_encode_hex(result->xxh3_digest, BC_HASH_XXH3_DIGEST_SIZE, out_hex_buffer);
-            return;
-        case BC_HASH_ALGORITHM_XXH128:
-            bc_hash_output_encode_hex(result->xxh128_digest, BC_HASH_XXH128_DIGEST_SIZE, out_hex_buffer);
-            return;
-        case BC_HASH_ALGORITHM_SHA256:
-        default:
-            bc_hash_output_encode_hex(result->sha256_digest, BC_CORE_SHA256_DIGEST_SIZE, out_hex_buffer);
-            return;
+        out_hex_buffer[BC_HASH_CRC32_HEX_LENGTH] = '\0';
+        return;
+    }
+    case BC_HASH_ALGORITHM_XXH3:
+        bc_hash_output_encode_hex(result->xxh3_digest, BC_HASH_XXH3_DIGEST_SIZE, out_hex_buffer);
+        return;
+    case BC_HASH_ALGORITHM_XXH128:
+        bc_hash_output_encode_hex(result->xxh128_digest, BC_HASH_XXH128_DIGEST_SIZE, out_hex_buffer);
+        return;
+    case BC_HASH_ALGORITHM_SHA256:
+    default:
+        bc_hash_output_encode_hex(result->sha256_digest, BC_CORE_SHA256_DIGEST_SIZE, out_hex_buffer);
+        return;
     }
 }
 
@@ -124,8 +138,8 @@ bool bc_hash_verify_run(bc_allocators_context_t* memory_context, bc_concurrency_
         size_t effective_worker_count = bc_concurrency_effective_worker_count(concurrency_context);
         bool dispatch_ok;
         if (effective_worker_count >= 2) {
-            dispatch_ok = bc_hash_worker_dispatch_all(concurrency_context, algorithm, entries, results, errors, memory_context,
-                                                     signal_handler);
+            dispatch_ok =
+                bc_hash_worker_dispatch_all(concurrency_context, algorithm, entries, results, errors, memory_context, signal_handler);
         } else {
             dispatch_ok = bc_hash_worker_dispatch_sequential(algorithm, entries, results, errors, memory_context, signal_handler);
         }
@@ -140,6 +154,10 @@ bool bc_hash_verify_run(bc_allocators_context_t* memory_context, bc_concurrency_
     size_t failed_count = 0;
     char computed_hex_buffer[BC_HASH_MAX_HEX_LENGTH + 1];
 
+    char stdout_buffer[BC_HASH_VERIFY_RUN_STDOUT_BUFFER_BYTES];
+    bc_core_writer_t stdout_writer;
+    bool stdout_writer_ready = bc_core_writer_init_standard_output(&stdout_writer, stdout_buffer, sizeof(stdout_buffer));
+
     for (size_t index = 0; index < expectation_count; index++) {
         bc_hash_verify_expectation_t expectation;
         if (!bc_containers_vector_get(expectations, index, &expectation)) {
@@ -147,30 +165,57 @@ bool bc_hash_verify_run(bc_allocators_context_t* memory_context, bc_concurrency_
         }
 
         if (expectation.target_missing) {
-            fprintf(stdout, "%s: MISSING\n", expectation.target_path);
+            if (stdout_writer_ready) {
+                (void)bc_core_writer_write_cstring(&stdout_writer, expectation.target_path);
+                (void)bc_core_writer_write_cstring(&stdout_writer, ": MISSING\n");
+            }
             continue;
         }
 
         const bc_hash_result_entry_t* result = &results[expectation.dispatch_index];
         if (!result->success) {
-            fprintf(stdout, "%s: FAILED\n", expectation.target_path);
+            if (stdout_writer_ready) {
+                (void)bc_core_writer_write_cstring(&stdout_writer, expectation.target_path);
+                (void)bc_core_writer_write_cstring(&stdout_writer, ": FAILED\n");
+            }
             failed_count += 1;
             continue;
         }
 
         bc_hash_verify_compute_result_hex(algorithm, result, computed_hex_buffer);
-        if (strcmp(computed_hex_buffer, expectation.expected_hex) == 0) {
-            fprintf(stdout, "%s: OK\n", expectation.target_path);
+        if (bc_hash_verify_run_strings_equal_terminated(computed_hex_buffer, expectation.expected_hex)) {
+            if (stdout_writer_ready) {
+                (void)bc_core_writer_write_cstring(&stdout_writer, expectation.target_path);
+                (void)bc_core_writer_write_cstring(&stdout_writer, ": OK\n");
+            }
             ok_count += 1;
         } else {
-            fprintf(stdout, "%s: FAILED\n", expectation.target_path);
+            if (stdout_writer_ready) {
+                (void)bc_core_writer_write_cstring(&stdout_writer, expectation.target_path);
+                (void)bc_core_writer_write_cstring(&stdout_writer, ": FAILED\n");
+            }
             failed_count += 1;
         }
     }
 
-    fflush(stdout);
+    if (stdout_writer_ready) {
+        (void)bc_core_writer_destroy(&stdout_writer);
+    }
 
-    fprintf(stderr, "bc-hash: %zu/%zu verified, %zu failed, %zu missing\n", ok_count, expectation_count, failed_count, missing_count);
+    char stderr_buffer[BC_HASH_VERIFY_RUN_STDERR_BUFFER_BYTES];
+    bc_core_writer_t stderr_writer;
+    if (bc_core_writer_init_standard_error(&stderr_writer, stderr_buffer, sizeof(stderr_buffer))) {
+        (void)bc_core_writer_write_cstring(&stderr_writer, "bc-hash: ");
+        (void)bc_core_writer_write_unsigned_integer_64_decimal(&stderr_writer, (uint64_t)ok_count);
+        (void)bc_core_writer_write_char(&stderr_writer, '/');
+        (void)bc_core_writer_write_unsigned_integer_64_decimal(&stderr_writer, (uint64_t)expectation_count);
+        (void)bc_core_writer_write_cstring(&stderr_writer, " verified, ");
+        (void)bc_core_writer_write_unsigned_integer_64_decimal(&stderr_writer, (uint64_t)failed_count);
+        (void)bc_core_writer_write_cstring(&stderr_writer, " failed, ");
+        (void)bc_core_writer_write_unsigned_integer_64_decimal(&stderr_writer, (uint64_t)missing_count);
+        (void)bc_core_writer_write_cstring(&stderr_writer, " missing\n");
+        (void)bc_core_writer_destroy(&stderr_writer);
+    }
 
     if (results != NULL) {
         bc_allocators_pool_free(memory_context, results);

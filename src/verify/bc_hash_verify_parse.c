@@ -6,11 +6,29 @@
 #include "bc_core.h"
 
 #include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define BC_HASH_VERIFY_PARSE_LINE_BUFFER 65536
+
+static bool bc_hash_verify_strings_equal_buffer(const char* candidate, size_t candidate_length, const char* literal, size_t literal_length)
+{
+    if (candidate_length != literal_length) {
+        return false;
+    }
+    bool equal = false;
+    (void)bc_core_equal(candidate, literal, literal_length, &equal);
+    return equal;
+}
+
+static size_t bc_hash_verify_cstring_length(const char* value)
+{
+    size_t length = 0;
+    (void)bc_core_length(value, '\0', &length);
+    return length;
+}
 
 static bool bc_hash_verify_is_hex_character(char character)
 {
@@ -29,45 +47,46 @@ static bool bc_hash_verify_is_hex_character(char character)
 static bool bc_hash_verify_algorithm_from_hex_length(size_t hex_length, bc_hash_algorithm_t* out_algorithm)
 {
     switch (hex_length) {
-        case BC_HASH_CRC32_HEX_LENGTH:
-            *out_algorithm = BC_HASH_ALGORITHM_CRC32;
-            return true;
-        case BC_HASH_XXH3_HEX_LENGTH:
-            *out_algorithm = BC_HASH_ALGORITHM_XXH3;
-            return true;
-        case BC_HASH_XXH128_HEX_LENGTH:
-            *out_algorithm = BC_HASH_ALGORITHM_XXH128;
-            return true;
-        case BC_HASH_SHA256_HEX_LENGTH:
-            *out_algorithm = BC_HASH_ALGORITHM_SHA256;
-            return true;
-        default:
-            return false;
+    case BC_HASH_CRC32_HEX_LENGTH:
+        *out_algorithm = BC_HASH_ALGORITHM_CRC32;
+        return true;
+    case BC_HASH_XXH3_HEX_LENGTH:
+        *out_algorithm = BC_HASH_ALGORITHM_XXH3;
+        return true;
+    case BC_HASH_XXH128_HEX_LENGTH:
+        *out_algorithm = BC_HASH_ALGORITHM_XXH128;
+        return true;
+    case BC_HASH_SHA256_HEX_LENGTH:
+        *out_algorithm = BC_HASH_ALGORITHM_SHA256;
+        return true;
+    default:
+        return false;
     }
 }
 
 static bool bc_hash_verify_algorithm_from_name(const char* name, size_t name_length, bc_hash_algorithm_t* out_algorithm)
 {
-    if (name_length == 5 && strncmp(name, "crc32", 5) == 0) {
+    if (bc_hash_verify_strings_equal_buffer(name, name_length, "crc32", 5)) {
         *out_algorithm = BC_HASH_ALGORITHM_CRC32;
         return true;
     }
-    if (name_length == 6 && strncmp(name, "sha256", 6) == 0) {
+    if (bc_hash_verify_strings_equal_buffer(name, name_length, "sha256", 6)) {
         *out_algorithm = BC_HASH_ALGORITHM_SHA256;
         return true;
     }
-    if (name_length == 4 && strncmp(name, "xxh3", 4) == 0) {
+    if (bc_hash_verify_strings_equal_buffer(name, name_length, "xxh3", 4)) {
         *out_algorithm = BC_HASH_ALGORITHM_XXH3;
         return true;
     }
-    if (name_length == 6 && strncmp(name, "xxh128", 6) == 0) {
+    if (bc_hash_verify_strings_equal_buffer(name, name_length, "xxh128", 6)) {
         *out_algorithm = BC_HASH_ALGORITHM_XXH128;
         return true;
     }
     return false;
 }
 
-static bool bc_hash_verify_intern_path(bc_allocators_context_t* memory_context, const char* path, size_t path_length, const char** out_interned)
+static bool bc_hash_verify_intern_path(bc_allocators_context_t* memory_context, const char* path, size_t path_length,
+                                       const char** out_interned)
 {
     char* buffer = NULL;
     if (!bc_allocators_pool_allocate(memory_context, path_length + 1, (void**)&buffer)) {
@@ -111,8 +130,8 @@ static bool bc_hash_verify_push_expectation(bc_allocators_context_t* memory_cont
     return true;
 }
 
-static bool bc_hash_verify_parse_simple_line(bc_allocators_context_t* memory_context, bc_containers_vector_t* expectations, const char* line,
-                                             size_t line_length, size_t* inout_hex_length)
+static bool bc_hash_verify_parse_simple_line(bc_allocators_context_t* memory_context, bc_containers_vector_t* expectations,
+                                             const char* line, size_t line_length, size_t* inout_hex_length)
 {
     size_t cursor = 0;
     while (cursor < line_length && (line[cursor] == ' ' || line[cursor] == '\t')) {
@@ -164,7 +183,7 @@ static bool bc_hash_verify_parse_simple_line(bc_allocators_context_t* memory_con
 static bool bc_hash_verify_find_json_string(const char* line, size_t line_length, const char* key, size_t* out_value_start,
                                             size_t* out_value_length)
 {
-    size_t key_length = strlen(key);
+    size_t key_length = bc_hash_verify_cstring_length(key);
     if (key_length + 4 > line_length) {
         return false;
     }
@@ -173,7 +192,9 @@ static bool bc_hash_verify_find_json_string(const char* line, size_t line_length
         if (line[index] != '"') {
             continue;
         }
-        if (strncmp(line + index + 1, key, key_length) != 0) {
+        bool key_matches = false;
+        (void)bc_core_equal(line + index + 1, key, key_length, &key_matches);
+        if (!key_matches) {
             continue;
         }
         size_t after_key = index + 1 + key_length;
@@ -216,7 +237,8 @@ static bool bc_hash_verify_find_json_string(const char* line, size_t line_length
     return false;
 }
 
-static bool bc_hash_verify_unescape_json_string(const char* input, size_t input_length, char* output, size_t output_capacity, size_t* out_output_length)
+static bool bc_hash_verify_unescape_json_string(const char* input, size_t input_length, char* output, size_t output_capacity,
+                                                size_t* out_output_length)
 {
     size_t output_index = 0;
     for (size_t index = 0; index < input_length; index++) {
@@ -233,66 +255,66 @@ static bool bc_hash_verify_unescape_json_string(const char* input, size_t input_
         }
         char next = input[index + 1];
         switch (next) {
-            case '"':
-            case '\\':
-            case '/':
-                output[output_index++] = next;
-                break;
-            case 'b':
-                output[output_index++] = '\b';
-                break;
-            case 'f':
-                output[output_index++] = '\f';
-                break;
-            case 'n':
-                output[output_index++] = '\n';
-                break;
-            case 'r':
-                output[output_index++] = '\r';
-                break;
-            case 't':
-                output[output_index++] = '\t';
-                break;
-            case 'u': {
-                if (index + 5 >= input_length) {
+        case '"':
+        case '\\':
+        case '/':
+            output[output_index++] = next;
+            break;
+        case 'b':
+            output[output_index++] = '\b';
+            break;
+        case 'f':
+            output[output_index++] = '\f';
+            break;
+        case 'n':
+            output[output_index++] = '\n';
+            break;
+        case 'r':
+            output[output_index++] = '\r';
+            break;
+        case 't':
+            output[output_index++] = '\t';
+            break;
+        case 'u': {
+            if (index + 5 >= input_length) {
+                return false;
+            }
+            unsigned int code_point = 0;
+            for (size_t digit = 0; digit < 4; digit++) {
+                char hex_character = input[index + 2 + digit];
+                unsigned int value;
+                if (hex_character >= '0' && hex_character <= '9') {
+                    value = (unsigned int)(hex_character - '0');
+                } else if (hex_character >= 'a' && hex_character <= 'f') {
+                    value = (unsigned int)(hex_character - 'a' + 10);
+                } else if (hex_character >= 'A' && hex_character <= 'F') {
+                    value = (unsigned int)(hex_character - 'A' + 10);
+                } else {
                     return false;
                 }
-                unsigned int code_point = 0;
-                for (size_t digit = 0; digit < 4; digit++) {
-                    char hex_character = input[index + 2 + digit];
-                    unsigned int value;
-                    if (hex_character >= '0' && hex_character <= '9') {
-                        value = (unsigned int)(hex_character - '0');
-                    } else if (hex_character >= 'a' && hex_character <= 'f') {
-                        value = (unsigned int)(hex_character - 'a' + 10);
-                    } else if (hex_character >= 'A' && hex_character <= 'F') {
-                        value = (unsigned int)(hex_character - 'A' + 10);
-                    } else {
-                        return false;
-                    }
-                    code_point = (code_point << 4) | value;
-                }
-                if (code_point < 0x80) {
-                    output[output_index++] = (char)code_point;
-                } else if (code_point < 0x800) {
-                    if (output_index + 2 > output_capacity) {
-                        return false;
-                    }
-                    output[output_index++] = (char)(0xC0 | (code_point >> 6));
-                    output[output_index++] = (char)(0x80 | (code_point & 0x3F));
-                } else {
-                    if (output_index + 3 > output_capacity) {
-                        return false;
-                    }
-                    output[output_index++] = (char)(0xE0 | (code_point >> 12));
-                    output[output_index++] = (char)(0x80 | ((code_point >> 6) & 0x3F));
-                    output[output_index++] = (char)(0x80 | (code_point & 0x3F));
-                }
-                index += 4;
-                break;
+                code_point = (code_point << 4) | value;
             }
-            default:
-                return false;
+            if (code_point < 0x80) {
+                output[output_index++] = (char)code_point;
+            } else if (code_point < 0x800) {
+                if (output_index + 2 > output_capacity) {
+                    return false;
+                }
+                output[output_index++] = (char)(0xC0 | (code_point >> 6));
+                output[output_index++] = (char)(0x80 | (code_point & 0x3F));
+            } else {
+                if (output_index + 3 > output_capacity) {
+                    return false;
+                }
+                output[output_index++] = (char)(0xE0 | (code_point >> 12));
+                output[output_index++] = (char)(0x80 | ((code_point >> 6) & 0x3F));
+                output[output_index++] = (char)(0x80 | (code_point & 0x3F));
+            }
+            index += 4;
+            break;
+        }
+        default:
+            return false;
         }
         index += 1;
     }
@@ -307,16 +329,18 @@ static bool bc_hash_verify_json_contains_literal(const char* line, size_t line_l
     if (!bc_hash_verify_find_json_string(line, line_length, key, &value_start, &value_length)) {
         return false;
     }
-    size_t expected_length = strlen(expected_value);
+    size_t expected_length = bc_hash_verify_cstring_length(expected_value);
     if (expected_length != value_length) {
         return false;
     }
-    return strncmp(line + value_start, expected_value, expected_length) == 0;
+    bool equal = false;
+    (void)bc_core_equal(line + value_start, expected_value, expected_length, &equal);
+    return equal;
 }
 
-static bool bc_hash_verify_parse_ndjson_line(bc_allocators_context_t* memory_context, bc_containers_vector_t* expectations, const char* line,
-                                             size_t line_length, bc_hash_algorithm_t* inout_algorithm, bool* inout_algorithm_set,
-                                             size_t* inout_hex_length)
+static bool bc_hash_verify_parse_ndjson_line(bc_allocators_context_t* memory_context, bc_containers_vector_t* expectations,
+                                             const char* line, size_t line_length, bc_hash_algorithm_t* inout_algorithm,
+                                             bool* inout_algorithm_set, size_t* inout_hex_length)
 {
     size_t cursor = 0;
     while (cursor < line_length && (line[cursor] == ' ' || line[cursor] == '\t')) {
@@ -366,49 +390,55 @@ static bool bc_hash_verify_parse_ndjson_line(bc_allocators_context_t* memory_con
         if (!bc_hash_verify_unescape_json_string(line + path_start, path_length, path_buffer, sizeof(path_buffer), &decoded_length)) {
             return false;
         }
-        return bc_hash_verify_push_expectation(memory_context, expectations, path_buffer, decoded_length, line + digest_start, digest_length);
+        return bc_hash_verify_push_expectation(memory_context, expectations, path_buffer, decoded_length, line + digest_start,
+                                               digest_length);
     }
 
     return true;
 }
 
-static bool bc_hash_verify_read_file_fully(bc_allocators_context_t* memory_context, const char* file_path, char** out_buffer, size_t* out_size)
+static bool bc_hash_verify_read_file_fully(bc_allocators_context_t* memory_context, const char* file_path, char** out_buffer,
+                                           size_t* out_size)
 {
-    FILE* file = fopen(file_path, "rb");
-    if (file == NULL) {
+    int file_descriptor = open(file_path, O_RDONLY | O_CLOEXEC);
+    if (file_descriptor < 0) {
         return false;
     }
-    if (fseek(file, 0, SEEK_END) != 0) {
-        fclose(file);
+    struct stat stat_buffer;
+    if (fstat(file_descriptor, &stat_buffer) != 0) {
+        close(file_descriptor);
         return false;
     }
-    long size_long = ftell(file);
-    if (size_long < 0) {
-        fclose(file);
+    if (!S_ISREG(stat_buffer.st_mode)) {
+        close(file_descriptor);
         return false;
     }
-    if (fseek(file, 0, SEEK_SET) != 0) {
-        fclose(file);
-        return false;
-    }
-    size_t file_size = (size_t)size_long;
+    size_t file_size = (size_t)stat_buffer.st_size;
     char* buffer = NULL;
     if (!bc_allocators_pool_allocate(memory_context, file_size + 1, (void**)&buffer)) {
-        fclose(file);
+        close(file_descriptor);
         return false;
     }
     size_t read_total = 0;
     while (read_total < file_size) {
-        size_t read_now = fread(buffer + read_total, 1, file_size - read_total, file);
-        if (read_now == 0) {
+        ssize_t read_now = read(file_descriptor, buffer + read_total, file_size - read_total);
+        if (read_now < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
             bc_allocators_pool_free(memory_context, buffer);
-            fclose(file);
+            close(file_descriptor);
             return false;
         }
-        read_total += read_now;
+        if (read_now == 0) {
+            bc_allocators_pool_free(memory_context, buffer);
+            close(file_descriptor);
+            return false;
+        }
+        read_total += (size_t)read_now;
     }
     buffer[file_size] = '\0';
-    fclose(file);
+    close(file_descriptor);
     *out_buffer = buffer;
     *out_size = file_size;
     return true;

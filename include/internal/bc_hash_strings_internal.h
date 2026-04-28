@@ -27,23 +27,6 @@ static inline bool bc_hash_strings_equal(const char* left, const char* right)
     return result;
 }
 
-static inline bool bc_hash_strings_starts_with(const char* null_terminated_string, const char* prefix, size_t prefix_length)
-{
-    size_t string_length = bc_hash_strings_length(null_terminated_string);
-    bool result = false;
-    (void)bc_core_starts_with(null_terminated_string, string_length, prefix, prefix_length, &result);
-    return result;
-}
-
-static inline char* bc_hash_strings_find_byte(char* data, size_t data_length, char target)
-{
-    size_t offset = 0;
-    if (!bc_core_find_byte(data, data_length, (unsigned char)target, &offset)) {
-        return NULL;
-    }
-    return data + offset;
-}
-
 static inline char* bc_hash_strings_find_last_byte(char* data, size_t data_length, char target)
 {
     size_t offset = 0;

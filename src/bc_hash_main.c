@@ -23,8 +23,6 @@
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -32,9 +30,35 @@
 #define BC_HASH_APPLICATION_ENTRY_MAX_CAPACITY (1ULL << 28)
 #define BC_HASH_OUTPUT_STDOUT_THRESHOLD ((size_t)20)
 #define BC_HASH_OUTPUT_BUFFER_BYTES ((size_t)(64 * 1024))
+#define BC_HASH_MAIN_STDERR_BUFFER_BYTES ((size_t)512)
+#define BC_HASH_MAIN_AUTO_PATH_CAPACITY ((size_t)256)
 #ifndef BC_HASH_VERSION_STRING
 #define BC_HASH_VERSION_STRING "0.0.0-unversioned"
 #endif
+
+static void bc_hash_main_emit_stderr_cstring(const char* message)
+{
+    char stderr_buffer[BC_HASH_MAIN_STDERR_BUFFER_BYTES];
+    bc_core_writer_t stderr_writer;
+    if (!bc_core_writer_init_standard_error(&stderr_writer, stderr_buffer, sizeof(stderr_buffer))) {
+        return;
+    }
+    (void)bc_core_writer_write_cstring(&stderr_writer, message);
+    (void)bc_core_writer_destroy(&stderr_writer);
+}
+
+static void bc_hash_main_emit_stderr_quoted_path(const char* prefix, const char* path, const char* suffix)
+{
+    char stderr_buffer[BC_HASH_MAIN_STDERR_BUFFER_BYTES];
+    bc_core_writer_t stderr_writer;
+    if (!bc_core_writer_init_standard_error(&stderr_writer, stderr_buffer, sizeof(stderr_buffer))) {
+        return;
+    }
+    (void)bc_core_writer_write_cstring(&stderr_writer, prefix);
+    (void)bc_core_writer_write_cstring(&stderr_writer, path);
+    (void)bc_core_writer_write_cstring(&stderr_writer, suffix);
+    (void)bc_core_writer_destroy(&stderr_writer);
+}
 
 static uint64_t bc_hash_main_realtime_unix_ms(void)
 {
@@ -69,14 +93,35 @@ typedef struct bc_hash_application_state {
     int exit_code;
 } bc_hash_application_state_t;
 
+static bool bc_hash_main_command_name_equal(const char* command_name, const char* expected, size_t expected_length)
+{
+    if (command_name == NULL) {
+        return false;
+    }
+    size_t actual_length = 0;
+    (void)bc_core_length(command_name, '\0', &actual_length);
+    if (actual_length != expected_length) {
+        return false;
+    }
+    bool equal = false;
+    (void)bc_core_equal(command_name, expected, expected_length, &equal);
+    return equal;
+}
+
 static bool bc_hash_application_is_check(const bc_hash_application_state_t* state)
 {
-    return state->parsed != NULL && state->parsed->command != NULL && strcmp(state->parsed->command->name, "check") == 0;
+    if (state->parsed == NULL || state->parsed->command == NULL) {
+        return false;
+    }
+    return bc_hash_main_command_name_equal(state->parsed->command->name, "check", 5);
 }
 
 static bool bc_hash_application_is_diff(const bc_hash_application_state_t* state)
 {
-    return state->parsed != NULL && state->parsed->command != NULL && strcmp(state->parsed->command->name, "diff") == 0;
+    if (state->parsed == NULL || state->parsed->command == NULL) {
+        return false;
+    }
+    return bc_hash_main_command_name_equal(state->parsed->command->name, "diff", 4);
 }
 
 static bool bc_hash_application_init(const bc_runtime_t* application, void* user_data)
@@ -143,12 +188,12 @@ static bool bc_hash_check_run(const bc_runtime_t* application, bc_hash_applicati
     bc_hash_verify_parse_status_t parse_status =
         bc_hash_verify_parse_digest_file(memory_context, state->digest_file_path, state->expectations, &state->detected_algorithm);
     if (parse_status == BC_HASH_VERIFY_PARSE_STATUS_IO_ERROR) {
-        fprintf(stderr, "bc-hash: cannot read digest file '%s'\n", state->digest_file_path);
+        bc_hash_main_emit_stderr_quoted_path("bc-hash: cannot read digest file '", state->digest_file_path, "'\n");
         state->exit_code = 2;
         return false;
     }
     if (parse_status == BC_HASH_VERIFY_PARSE_STATUS_FORMAT_ERROR) {
-        fprintf(stderr, "bc-hash: malformed digest file '%s'\n", state->digest_file_path);
+        bc_hash_main_emit_stderr_quoted_path("bc-hash: malformed digest file '", state->digest_file_path, "'\n");
         state->exit_code = 2;
         return false;
     }
@@ -218,8 +263,8 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
     size_t discovery_worker_count = bc_concurrency_effective_worker_count(concurrency_context);
     bool discovery_ok;
     if (discovery_worker_count >= 2) {
-        discovery_ok = bc_hash_discovery_expand_parallel(memory_context, concurrency_context, state->entries, state->errors,
-                                                        signal_handler, state->filter, positional_argument_values, positional_argument_count);
+        discovery_ok = bc_hash_discovery_expand_parallel(memory_context, concurrency_context, state->entries, state->errors, signal_handler,
+                                                         state->filter, positional_argument_values, positional_argument_count);
     } else {
         discovery_ok = bc_hash_discovery_expand(memory_context, state->entries, state->errors, signal_handler, state->filter,
                                                 positional_argument_values, positional_argument_count);
@@ -232,7 +277,7 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
     bool interrupted_after_discovery = false;
     bc_runtime_should_stop(application, &interrupted_after_discovery);
     if (interrupted_after_discovery) {
-        fputs("bc-hash: interrupted by signal, aborting before hash phase\n", stderr);
+        bc_hash_main_emit_stderr_cstring("bc-hash: interrupted by signal, aborting before hash phase\n");
         state->exit_code = 130;
         return false;
     }
@@ -257,6 +302,8 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
         should_go_multithread = false;
     } else if (state->cli_options.threads_mode == BC_HASH_THREADS_MODE_EXPLICIT) {
         should_go_multithread = true;
+    } else if (entry_count == 1) {
+        should_go_multithread = false;
     } else {
         size_t total_bytes = 0;
         for (size_t index = 0; index < entry_count; ++index) {
@@ -267,8 +314,8 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
         }
         bc_hash_throughput_constants_t throughput_constants;
         if (bc_hash_throughput_get_or_measure(concurrency_context, &throughput_constants)) {
-            should_go_multithread = bc_hash_dispatch_decision_should_go_multithread(entry_count, total_bytes, &throughput_constants,
-                                                                                    effective_worker_count);
+            should_go_multithread =
+                bc_hash_dispatch_decision_should_go_multithread(entry_count, total_bytes, &throughput_constants, effective_worker_count);
         } else {
             should_go_multithread = true;
         }
@@ -290,7 +337,7 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
     bool interrupted_after_hash = false;
     bc_runtime_should_stop(application, &interrupted_after_hash);
     if (interrupted_after_hash) {
-        fputs("bc-hash: interrupted by signal, partial results may be written\n", stderr);
+        bc_hash_main_emit_stderr_cstring("bc-hash: interrupted by signal, partial results may be written\n");
     }
 
     int output_fd = STDOUT_FILENO;
@@ -302,7 +349,7 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
     if (state->cli_options.output_destination_mode == BC_HASH_OUTPUT_DESTINATION_FILE) {
         opened_output_fd = open(state->cli_options.output_destination_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (opened_output_fd < 0) {
-            fprintf(stderr, "bc-hash: cannot open --output path '%s'\n", state->cli_options.output_destination_path);
+            bc_hash_main_emit_stderr_quoted_path("bc-hash: cannot open --output path '", state->cli_options.output_destination_path, "'\n");
             state->exit_code = 1;
             return false;
         }
@@ -313,38 +360,50 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
         if (stdout_is_terminal && entry_count > BC_HASH_OUTPUT_STDOUT_THRESHOLD) {
             const char* algorithm_name;
             switch (state->cli_options.algorithm) {
-                case BC_HASH_ALGORITHM_CRC32:
-                    algorithm_name = "crc32";
-                    break;
-                case BC_HASH_ALGORITHM_XXH3:
-                    algorithm_name = "xxh3";
-                    break;
-                case BC_HASH_ALGORITHM_XXH128:
-                    algorithm_name = "xxh128";
-                    break;
-                case BC_HASH_ALGORITHM_SHA256:
-                default:
-                    algorithm_name = "sha256";
-                    break;
+            case BC_HASH_ALGORITHM_CRC32:
+                algorithm_name = "crc32";
+                break;
+            case BC_HASH_ALGORITHM_XXH3:
+                algorithm_name = "xxh3";
+                break;
+            case BC_HASH_ALGORITHM_XXH128:
+                algorithm_name = "xxh128";
+                break;
+            case BC_HASH_ALGORITHM_SHA256:
+            default:
+                algorithm_name = "sha256";
+                break;
             }
             const char* extension = "ndjson";
             if (state->cli_options.output_format_mode == BC_HASH_OUTPUT_FORMAT_MODE_EXPLICIT) {
                 switch (state->cli_options.output_format) {
-                    case BC_HASH_OUTPUT_FORMAT_HRBL:
-                        extension = "hrbl";
-                        break;
-                    case BC_HASH_OUTPUT_FORMAT_JSON:
-                        extension = "ndjson";
-                        break;
-                    case BC_HASH_OUTPUT_FORMAT_SIMPLE:
-                        extension = "txt";
-                        break;
+                case BC_HASH_OUTPUT_FORMAT_HRBL:
+                    extension = "hrbl";
+                    break;
+                case BC_HASH_OUTPUT_FORMAT_JSON:
+                    extension = "ndjson";
+                    break;
+                case BC_HASH_OUTPUT_FORMAT_SIMPLE:
+                    extension = "txt";
+                    break;
                 }
             }
-            snprintf(auto_output_path, sizeof(auto_output_path), "./bc-hash-%s.%s", algorithm_name, extension);
+            bc_core_writer_t auto_path_writer;
+            if (bc_core_writer_init_buffer_only(&auto_path_writer, auto_output_path, sizeof(auto_output_path) - 1)) {
+                (void)bc_core_writer_write_cstring(&auto_path_writer, "./bc-hash-");
+                (void)bc_core_writer_write_cstring(&auto_path_writer, algorithm_name);
+                (void)bc_core_writer_write_char(&auto_path_writer, '.');
+                (void)bc_core_writer_write_cstring(&auto_path_writer, extension);
+                const char* auto_path_data = NULL;
+                size_t auto_path_length = 0;
+                (void)bc_core_writer_buffer_data(&auto_path_writer, &auto_path_data, &auto_path_length);
+                auto_output_path[auto_path_length] = '\0';
+                (void)bc_core_writer_destroy(&auto_path_writer);
+            }
             opened_output_fd = open(auto_output_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
             if (opened_output_fd < 0) {
-                fprintf(stderr, "bc-hash: cannot open default output path '%s', falling back to stdout\n", auto_output_path);
+                bc_hash_main_emit_stderr_quoted_path("bc-hash: cannot open default output path '", auto_output_path,
+                                                     "', falling back to stdout\n");
             } else {
                 output_fd = opened_output_fd;
                 output_destination_label = auto_output_path;
@@ -373,11 +432,10 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
         output_format = BC_HASH_OUTPUT_FORMAT_SIMPLE;
     }
 
-    if (output_format == BC_HASH_OUTPUT_FORMAT_HRBL
-        && opened_output_fd < 0
-        && state->cli_options.output_destination_mode == BC_HASH_OUTPUT_DESTINATION_AUTO
-        && isatty(STDOUT_FILENO) != 0) {
-        fputs("bc-hash: refusing to write binary HRBL to a terminal; pass --output=PATH (or --output=-) to opt in\n", stderr);
+    if (output_format == BC_HASH_OUTPUT_FORMAT_HRBL && opened_output_fd < 0 &&
+        state->cli_options.output_destination_mode == BC_HASH_OUTPUT_DESTINATION_AUTO && isatty(STDOUT_FILENO) != 0) {
+        bc_hash_main_emit_stderr_cstring(
+            "bc-hash: refusing to write binary HRBL to a terminal; pass --output=PATH (or --output=-) to opt in\n");
         state->exit_code = 1;
         return false;
     }
@@ -412,7 +470,18 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
                 success_count += 1;
             }
         }
-        fprintf(stderr, "bc-hash: hashed %zu files, %zu written to %s\n", entry_count, success_count, output_destination_label);
+        char summary_buffer[BC_HASH_MAIN_STDERR_BUFFER_BYTES];
+        bc_core_writer_t summary_writer;
+        if (bc_core_writer_init_standard_error(&summary_writer, summary_buffer, sizeof(summary_buffer))) {
+            (void)bc_core_writer_write_cstring(&summary_writer, "bc-hash: hashed ");
+            (void)bc_core_writer_write_unsigned_integer_64_decimal(&summary_writer, (uint64_t)entry_count);
+            (void)bc_core_writer_write_cstring(&summary_writer, " files, ");
+            (void)bc_core_writer_write_unsigned_integer_64_decimal(&summary_writer, (uint64_t)success_count);
+            (void)bc_core_writer_write_cstring(&summary_writer, " written to ");
+            (void)bc_core_writer_write_cstring(&summary_writer, output_destination_label);
+            (void)bc_core_writer_write_char(&summary_writer, '\n');
+            (void)bc_core_writer_destroy(&summary_writer);
+        }
     }
 
     bc_runtime_error_collector_flush_to_stderr(state->errors, "bc-hash");
@@ -464,13 +533,13 @@ int main(int argument_count, char** argument_values)
     bc_allocators_context_config_t cli_memory_config = {.tracking_enabled = true};
     bc_allocators_context_t* cli_memory_context = NULL;
     if (!bc_allocators_context_create(&cli_memory_config, &cli_memory_context)) {
-        fputs("bc-hash: failed to initialize CLI memory context\n", stderr);
+        bc_hash_main_emit_stderr_cstring("bc-hash: failed to initialize CLI memory context\n");
         return 1;
     }
 
     bc_runtime_config_store_t* cli_store = NULL;
     if (!bc_runtime_config_store_create(cli_memory_context, &cli_store)) {
-        fputs("bc-hash: failed to initialize CLI config store\n", stderr);
+        bc_hash_main_emit_stderr_cstring("bc-hash: failed to initialize CLI config store\n");
         bc_allocators_context_destroy(cli_memory_context);
         return 1;
     }
@@ -510,9 +579,9 @@ int main(int argument_count, char** argument_values)
     bc_hash_threads_mode_t threads_mode = BC_HASH_THREADS_MODE_AUTO;
     size_t explicit_worker_count = 0;
 
-    if (strcmp(parsed.command->name, "check") == 0) {
+    if (bc_hash_main_command_name_equal(parsed.command->name, "check", 5)) {
         if (parsed.positional_count != 1) {
-            fputs("bc-hash: check requires exactly one digest file argument\n", stderr);
+            bc_hash_main_emit_stderr_cstring("bc-hash: check requires exactly one digest file argument\n");
             bc_runtime_config_store_destroy(cli_memory_context, cli_store);
             bc_allocators_context_destroy(cli_memory_context);
             return 2;
@@ -523,9 +592,9 @@ int main(int argument_count, char** argument_values)
             bc_allocators_context_destroy(cli_memory_context);
             return 2;
         }
-    } else if (strcmp(parsed.command->name, "diff") == 0) {
+    } else if (bc_hash_main_command_name_equal(parsed.command->name, "diff", 4)) {
         if (parsed.positional_count != 2) {
-            fputs("bc-hash: diff requires exactly two digest file arguments\n", stderr);
+            bc_hash_main_emit_stderr_cstring("bc-hash: diff requires exactly two digest file arguments\n");
             bc_runtime_config_store_destroy(cli_memory_context, cli_store);
             bc_allocators_context_destroy(cli_memory_context);
             return 2;
@@ -574,7 +643,7 @@ int main(int argument_count, char** argument_values)
 
     bc_runtime_t* runtime = NULL;
     if (!bc_runtime_create(&runtime_config, &runtime_callbacks, &state, &runtime)) {
-        fputs("bc-hash: failed to initialize runtime\n", stderr);
+        bc_hash_main_emit_stderr_cstring("bc-hash: failed to initialize runtime\n");
         bc_runtime_config_store_destroy(cli_memory_context, cli_store);
         bc_allocators_context_destroy(cli_memory_context);
         return 1;

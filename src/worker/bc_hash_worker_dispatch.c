@@ -11,7 +11,6 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdlib.h>
 #include <string.h>
 
 #define XXH_INLINE_ALL
@@ -66,17 +65,12 @@ typedef struct bc_hash_consumer_state {
     } algo;
 } bc_hash_consumer_state_t;
 
-static int bc_hash_dispatch_compare_size_descending(const void* left_element, const void* right_element)
+static bool bc_hash_dispatch_size_descending_less_than(const void* left_element, const void* right_element, void* user_data)
 {
+    (void)user_data;
     const bc_hash_sort_descriptor_t* left = (const bc_hash_sort_descriptor_t*)left_element;
     const bc_hash_sort_descriptor_t* right = (const bc_hash_sort_descriptor_t*)right_element;
-    if (left->file_size < right->file_size) {
-        return 1;
-    }
-    if (left->file_size > right->file_size) {
-        return -1;
-    }
-    return 0;
+    return left->file_size > right->file_size;
 }
 
 static bool bc_hash_dispatch_consumer_crc32(void* consumer_context, const void* chunk_data, size_t chunk_size)
@@ -255,7 +249,8 @@ static bool bc_hash_dispatch_build_processing_order(bc_allocators_context_t* mai
         descriptors[index].file_size = entry.file_size;
     }
 
-    qsort(descriptors, entry_count, sizeof(bc_hash_sort_descriptor_t), bc_hash_dispatch_compare_size_descending);
+    bc_core_sort_with_compare(descriptors, entry_count, sizeof(bc_hash_sort_descriptor_t), bc_hash_dispatch_size_descending_less_than,
+                              NULL);
 
     size_t* processing_order = NULL;
     if (!bc_allocators_pool_allocate(main_memory_context, order_bytes, (void**)&processing_order)) {

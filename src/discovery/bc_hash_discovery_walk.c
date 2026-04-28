@@ -15,7 +15,6 @@
 #include <fcntl.h>
 #include <glob.h>
 #include <stddef.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -110,7 +109,10 @@ static bool bc_hash_walk_handle_entry(bc_hash_walk_state_t* state, int directory
     }
 
     char child_path_buffer[BC_HASH_WALK_PATH_BUFFER_SIZE];
-    size_t entry_name_length = strlen(entry_name);
+    size_t entry_name_length = 0;
+    if (!bc_core_length(entry_name, '\0', &entry_name_length)) {
+        return false;
+    }
     size_t child_path_length = 0;
     if (!bc_io_file_path_join(child_path_buffer, sizeof(child_path_buffer), directory_path, directory_path_length, entry_name,
                               entry_name_length, &child_path_length)) {
@@ -216,7 +218,11 @@ static bool bc_hash_walk_process_input_path(bc_hash_walk_state_t* state, const c
     }
 
     if (S_ISREG(input_stat_buffer.st_mode)) {
-        return bc_hash_walk_append_entry(state, input_path, strlen(input_path), (size_t)input_stat_buffer.st_size);
+        size_t input_path_length = 0;
+        if (!bc_core_length(input_path, '\0', &input_path_length)) {
+            return false;
+        }
+        return bc_hash_walk_append_entry(state, input_path, input_path_length, (size_t)input_stat_buffer.st_size);
     }
 
     if (S_ISDIR(input_stat_buffer.st_mode)) {
@@ -236,7 +242,11 @@ static bool bc_hash_walk_process_input_path(bc_hash_walk_state_t* state, const c
             return false;
         }
 
-        size_t input_path_length = strlen(input_path);
+        size_t input_path_length = 0;
+        if (!bc_core_length(input_path, '\0', &input_path_length)) {
+            close(directory_file_descriptor);
+            return false;
+        }
         while (input_path_length > 1 && input_path[input_path_length - 1] == '/') {
             input_path_length -= 1;
         }
@@ -264,7 +274,14 @@ static bool bc_hash_walk_expand_glob(bc_hash_walk_state_t* state, const char* pa
     bool any_match = false;
     for (size_t index = 0; index < glob_buffer.gl_pathc; ++index) {
         const char* matched_path = glob_buffer.gl_pathv[index];
-        if (strcmp(matched_path, pattern) == 0) {
+        size_t matched_path_length = 0;
+        size_t pattern_length = 0;
+        bool matches_exactly = false;
+        if (bc_core_length(matched_path, '\0', &matched_path_length) && bc_core_length(pattern, '\0', &pattern_length)
+            && matched_path_length == pattern_length) {
+            (void)bc_core_equal(matched_path, pattern, matched_path_length, &matches_exactly);
+        }
+        if (matches_exactly) {
             bool pattern_has_metacharacter = false;
             bc_hash_discovery_glob_contains_metacharacter(pattern, &pattern_has_metacharacter);
             if (pattern_has_metacharacter && glob_buffer.gl_pathc == 1) {

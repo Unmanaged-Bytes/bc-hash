@@ -33,22 +33,17 @@ static double bc_hash_throughput_monotonic_seconds(void)
     return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
 
-static int bc_hash_throughput_compare_double(const void* left, const void* right)
+static bool bc_hash_throughput_double_less_than(const void* left, const void* right, void* user_data)
 {
+    (void)user_data;
     double left_value = *(const double*)left;
     double right_value = *(const double*)right;
-    if (left_value < right_value) {
-        return -1;
-    }
-    if (left_value > right_value) {
-        return 1;
-    }
-    return 0;
+    return left_value < right_value;
 }
 
 static double bc_hash_throughput_median_seconds(double* samples, size_t sample_count)
 {
-    qsort(samples, sample_count, sizeof(double), bc_hash_throughput_compare_double);
+    bc_core_sort_with_compare(samples, sample_count, sizeof(double), bc_hash_throughput_double_less_than, NULL);
     return samples[sample_count / 2];
 }
 
