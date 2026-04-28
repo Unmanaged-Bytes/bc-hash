@@ -300,7 +300,8 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
     bool should_go_multithread;
     if (effective_worker_count < 2) {
         should_go_multithread = false;
-    } else if (state->cli_options.threads_mode == BC_HASH_THREADS_MODE_EXPLICIT) {
+    } else if (state->cli_options.threads_mode == BC_HASH_THREADS_MODE_EXPLICIT
+               || state->cli_options.threads_mode == BC_HASH_THREADS_MODE_AUTO_IO) {
         should_go_multithread = true;
     } else if (entry_count == 1) {
         should_go_multithread = false;
@@ -624,6 +625,21 @@ int main(int argument_count, char** argument_values)
     } else if (threads_mode == BC_HASH_THREADS_MODE_EXPLICIT) {
         parallel_config.worker_count_explicit = true;
         parallel_config.worker_count = explicit_worker_count >= 1 ? explicit_worker_count - 1 : 0;
+        size_t logical_processor_count = bc_concurrency_logical_processor_count();
+        if (explicit_worker_count > logical_processor_count) {
+            bc_hash_main_emit_stderr_cstring("bc-hash: --threads exceeds online logical processors\n");
+            bc_runtime_config_store_destroy(cli_memory_context, cli_store);
+            bc_allocators_context_destroy(cli_memory_context);
+            return 2;
+        }
+        if (explicit_worker_count > bc_concurrency_physical_core_count()) {
+            parallel_config.allow_oversubscribe = true;
+        }
+    } else if (threads_mode == BC_HASH_THREADS_MODE_AUTO_IO) {
+        size_t logical_processor_count = bc_concurrency_logical_processor_count();
+        parallel_config.allow_oversubscribe = true;
+        parallel_config.worker_count_explicit = true;
+        parallel_config.worker_count = logical_processor_count >= 2 ? logical_processor_count - 1 : 0;
     }
 
     bc_runtime_config_t runtime_config = {

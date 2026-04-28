@@ -34,6 +34,7 @@ typedef enum {
     BC_HASH_THREADS_MODE_AUTO = 0,
     BC_HASH_THREADS_MODE_MONO = 1,
     BC_HASH_THREADS_MODE_EXPLICIT = 2,
+    BC_HASH_THREADS_MODE_AUTO_IO = 3,
 } bc_hash_threads_mode_t;
 
 typedef enum {
