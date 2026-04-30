@@ -8,7 +8,7 @@
 
 #include "bc_allocators.h"
 #include "bc_concurrency.h"
-#include "bc_concurrency_signal.h"
+#include "bc_runtime_signal.h"
 #include "bc_containers_vector.h"
 
 #include <stdbool.h>
@@ -33,10 +33,11 @@ typedef enum {
 } bc_hash_verify_parse_status_t;
 
 bc_hash_verify_parse_status_t bc_hash_verify_parse_digest_file(bc_allocators_context_t* memory_context, const char* digest_file_path,
-                                                               bc_containers_vector_t* out_expectations, bc_hash_algorithm_t* out_algorithm);
+                                                               bc_containers_vector_t* out_expectations,
+                                                               bc_hash_algorithm_t* out_algorithm);
 
 bool bc_hash_verify_run(bc_allocators_context_t* memory_context, bc_concurrency_context_t* concurrency_context,
-                        bc_concurrency_signal_handler_t* signal_handler, bc_hash_algorithm_t algorithm,
+                        bc_runtime_signal_handler_t* signal_handler, bc_hash_algorithm_t algorithm,
                         bc_containers_vector_t* expectations, bc_runtime_error_collector_t* errors, int* out_exit_code);
 
 #endif /* BC_HASH_VERIFY_INTERNAL_H */

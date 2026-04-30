@@ -27,9 +27,9 @@ struct fixture {
     bc_containers_vector_t* entries;
 };
 
-static size_t capture_output(bc_hash_output_format_t format, bc_hash_algorithm_t algorithm,
-                             const bc_containers_vector_t* entries, const bc_hash_result_entry_t* results,
-                             const bc_hash_output_context_t* context, char* out_buffer, size_t capacity)
+static size_t capture_output(bc_hash_output_format_t format, bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
+                             const bc_hash_result_entry_t* results, const bc_hash_output_context_t* context, char* out_buffer,
+                             size_t capacity)
 {
     int fd = (int)syscall(SYS_memfd_create, "bc-hash-test", 0);
     if (fd < 0) {
@@ -105,7 +105,8 @@ static void test_simple_skips_unsuccessful_entries(void** state)
 
     bc_hash_result_entry_t results[2] = {0};
     results[0].success = true;
-    for (size_t i = 0; i < 32; i++) results[0].sha256_digest[i] = (uint8_t)i;
+    for (size_t i = 0; i < 32; i++)
+        results[0].sha256_digest[i] = (uint8_t)i;
     results[1].success = false;
     results[1].errno_value = ENOENT;
 
@@ -134,7 +135,8 @@ static void test_simple_xxh3(void** state)
     push_entry(fixture->entries, fixture->memory_context, "/a", 3);
     bc_hash_result_entry_t results[1] = {0};
     results[0].success = true;
-    for (size_t i = 0; i < BC_HASH_XXH3_DIGEST_SIZE; i++) results[0].xxh3_digest[i] = (uint8_t)(0x10 + i);
+    for (size_t i = 0; i < BC_HASH_XXH3_DIGEST_SIZE; i++)
+        results[0].xxh3_digest[i] = (uint8_t)(0x10 + i);
 
     char buffer[256] = {0};
     capture_output(BC_HASH_OUTPUT_FORMAT_SIMPLE, BC_HASH_ALGORITHM_XXH3, fixture->entries, results, NULL, buffer, sizeof(buffer));
@@ -147,7 +149,8 @@ static void test_simple_xxh128(void** state)
     push_entry(fixture->entries, fixture->memory_context, "/a", 3);
     bc_hash_result_entry_t results[1] = {0};
     results[0].success = true;
-    for (size_t i = 0; i < BC_HASH_XXH128_DIGEST_SIZE; i++) results[0].xxh128_digest[i] = (uint8_t)(0xA0 + i);
+    for (size_t i = 0; i < BC_HASH_XXH128_DIGEST_SIZE; i++)
+        results[0].xxh128_digest[i] = (uint8_t)(0xA0 + i);
 
     char buffer[256] = {0};
     capture_output(BC_HASH_OUTPUT_FORMAT_SIMPLE, BC_HASH_ALGORITHM_XXH128, fixture->entries, results, NULL, buffer, sizeof(buffer));
@@ -163,8 +166,8 @@ static void test_json_crc32(void** state)
     results[0].crc32_value = 0x12345678u;
 
     char buffer[2048] = {0};
-    bc_hash_output_context_t context = {.tool_version = "test", .dispatch_mode = "parallel", .started_at_unix_ms = 1000, .wall_ms = 5,
-                                         .worker_count = 2};
+    bc_hash_output_context_t context = {
+        .tool_version = "test", .dispatch_mode = "parallel", .started_at_unix_ms = 1000, .wall_ms = 5, .worker_count = 2};
     capture_output(BC_HASH_OUTPUT_FORMAT_JSON, BC_HASH_ALGORITHM_CRC32, fixture->entries, results, &context, buffer, sizeof(buffer));
     assert_non_null(strstr(buffer, "\"algorithm\":\"crc32\""));
     assert_non_null(strstr(buffer, "\"digest\":\"12345678\""));
@@ -177,7 +180,8 @@ static void test_json_error_entry_emitted(void** state)
     push_entry(fixture->entries, fixture->memory_context, "/b", 3);
     bc_hash_result_entry_t results[2] = {0};
     results[0].success = true;
-    for (size_t i = 0; i < 32; i++) results[0].sha256_digest[i] = (uint8_t)i;
+    for (size_t i = 0; i < 32; i++)
+        results[0].sha256_digest[i] = (uint8_t)i;
     results[1].success = false;
     results[1].errno_value = EIO;
 
@@ -208,7 +212,8 @@ static void test_json_path_escape_all_chars(void** state)
 
     bc_hash_result_entry_t results[1] = {0};
     results[0].success = true;
-    for (size_t i = 0; i < 32; i++) results[0].sha256_digest[i] = 0;
+    for (size_t i = 0; i < 32; i++)
+        results[0].sha256_digest[i] = 0;
 
     char buffer[2048] = {0};
     bc_hash_output_context_t context = {.tool_version = "test", .dispatch_mode = "sequential"};
@@ -245,14 +250,16 @@ static void test_hrbl_magic_and_roundtrip(void** state)
     push_entry(fixture->entries, fixture->memory_context, "/b.log", 0);
     bc_hash_result_entry_t results[2] = {0};
     results[0].success = true;
-    for (size_t i = 0; i < 32; i++) results[0].sha256_digest[i] = (uint8_t)(i + 1);
+    for (size_t i = 0; i < 32; i++)
+        results[0].sha256_digest[i] = (uint8_t)(i + 1);
     results[1].success = false;
     results[1].errno_value = ENOENT;
 
     char buffer[8192] = {0};
-    bc_hash_output_context_t context = {.tool_version = "1.2.0", .dispatch_mode = "parallel",
-                                        .started_at_unix_ms = 1700000000000ULL, .wall_ms = 42, .worker_count = 8};
-    size_t written = capture_output(BC_HASH_OUTPUT_FORMAT_HRBL, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, &context, buffer, sizeof(buffer));
+    bc_hash_output_context_t context = {
+        .tool_version = "1.2.0", .dispatch_mode = "parallel", .started_at_unix_ms = 1700000000000ULL, .wall_ms = 42, .worker_count = 8};
+    size_t written =
+        capture_output(BC_HASH_OUTPUT_FORMAT_HRBL, BC_HASH_ALGORITHM_SHA256, fixture->entries, results, &context, buffer, sizeof(buffer));
     assert_true(written > 128);
     assert_int_equal((unsigned char)buffer[0], 'H');
     assert_int_equal((unsigned char)buffer[1], 'R');
@@ -292,13 +299,15 @@ static void test_hrbl_file_entry_ok_and_error(void** state)
     push_entry(fixture->entries, fixture->memory_context, "bad_path", 0);
     bc_hash_result_entry_t results[2] = {0};
     results[0].success = true;
-    for (size_t i = 0; i < BC_HASH_XXH3_DIGEST_SIZE; i++) results[0].xxh3_digest[i] = (uint8_t)(0xC0 + i);
+    for (size_t i = 0; i < BC_HASH_XXH3_DIGEST_SIZE; i++)
+        results[0].xxh3_digest[i] = (uint8_t)(0xC0 + i);
     results[1].success = false;
     results[1].errno_value = EACCES;
 
     char buffer[4096] = {0};
     bc_hash_output_context_t context = {.tool_version = "1.2.0", .dispatch_mode = "sequential"};
-    size_t written = capture_output(BC_HASH_OUTPUT_FORMAT_HRBL, BC_HASH_ALGORITHM_XXH3, fixture->entries, results, &context, buffer, sizeof(buffer));
+    size_t written =
+        capture_output(BC_HASH_OUTPUT_FORMAT_HRBL, BC_HASH_ALGORITHM_XXH3, fixture->entries, results, &context, buffer, sizeof(buffer));
 
     bc_hrbl_reader_t* reader = NULL;
     assert_true(bc_hrbl_reader_open_buffer(fixture->memory_context, buffer, written, &reader));

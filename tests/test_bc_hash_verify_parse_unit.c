@@ -94,10 +94,9 @@ static void test_parse_empty_file_format_error(void** state)
 static void test_parse_comment_lines_ignored(void** state)
 {
     struct fixture* fixture = *state;
-    const char* content =
-        "# this is a comment\n"
-        "   \n"
-        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  /path/a\n";
+    const char* content = "# this is a comment\n"
+                          "   \n"
+                          "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  /path/a\n";
     assert_int_equal(write_string(fixture->digest_path, content), 0);
     bc_hash_algorithm_t algorithm = BC_HASH_ALGORITHM_SHA256;
     bc_hash_verify_parse_status_t status =
@@ -133,9 +132,8 @@ static void test_parse_binary_marker_asterisk(void** state)
 static void test_parse_inconsistent_hex_length_rejected(void** state)
 {
     struct fixture* fixture = *state;
-    const char* content =
-        "364b3fb7  /path/a\n"
-        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  /path/b\n";
+    const char* content = "364b3fb7  /path/a\n"
+                          "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  /path/b\n";
     assert_int_equal(write_string(fixture->digest_path, content), 0);
     bc_hash_algorithm_t algorithm = BC_HASH_ALGORITHM_SHA256;
     bc_hash_verify_parse_status_t status =
@@ -168,11 +166,10 @@ static void test_parse_missing_separator_rejected(void** state)
 static void test_parse_ndjson_with_all_escapes(void** state)
 {
     struct fixture* fixture = *state;
-    const char* content =
-        "{\"type\":\"header\",\"tool\":\"bc-hash\",\"version\":\"1.0.0\",\"schema_version\":1,\"algorithm\":\"sha256\","
-        "\"started_at\":\"2026-04-18T00:00:00Z\"}\n"
-        "{\"type\":\"entry\",\"path\":\"/p/quote\\\"\\\\back\\/slash\\b\\f\\n\\r\\ttab\\u00e9eu\","
-        "\"digest\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\"}\n";
+    const char* content = "{\"type\":\"header\",\"tool\":\"bc-hash\",\"version\":\"1.0.0\",\"schema_version\":1,\"algorithm\":\"sha256\","
+                          "\"started_at\":\"2026-04-18T00:00:00Z\"}\n"
+                          "{\"type\":\"entry\",\"path\":\"/p/quote\\\"\\\\back\\/slash\\b\\f\\n\\r\\ttab\\u00e9eu\","
+                          "\"digest\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\"}\n";
     assert_int_equal(write_string(fixture->digest_path, content), 0);
     bc_hash_algorithm_t algorithm = BC_HASH_ALGORITHM_CRC32;
     bc_hash_verify_parse_status_t status =
@@ -185,9 +182,8 @@ static void test_parse_ndjson_with_all_escapes(void** state)
 static void test_parse_ndjson_unicode_3byte_utf8(void** state)
 {
     struct fixture* fixture = *state;
-    const char* content =
-        "{\"type\":\"header\",\"algorithm\":\"xxh3\"}\n"
-        "{\"type\":\"entry\",\"path\":\"/p/\\u4e2d\",\"digest\":\"78af5f94892f3950\"}\n";
+    const char* content = "{\"type\":\"header\",\"algorithm\":\"xxh3\"}\n"
+                          "{\"type\":\"entry\",\"path\":\"/p/\\u4e2d\",\"digest\":\"78af5f94892f3950\"}\n";
     assert_int_equal(write_string(fixture->digest_path, content), 0);
     bc_hash_algorithm_t algorithm = BC_HASH_ALGORITHM_SHA256;
     bc_hash_verify_parse_status_t status =
@@ -199,9 +195,8 @@ static void test_parse_ndjson_unicode_3byte_utf8(void** state)
 static void test_parse_ndjson_header_missing_algorithm(void** state)
 {
     struct fixture* fixture = *state;
-    const char* content =
-        "{\"type\":\"header\",\"tool\":\"bc-hash\"}\n"
-        "{\"type\":\"entry\",\"path\":\"/p\",\"digest\":\"78af5f94892f3950\"}\n";
+    const char* content = "{\"type\":\"header\",\"tool\":\"bc-hash\"}\n"
+                          "{\"type\":\"entry\",\"path\":\"/p\",\"digest\":\"78af5f94892f3950\"}\n";
     assert_int_equal(write_string(fixture->digest_path, content), 0);
     bc_hash_algorithm_t algorithm = BC_HASH_ALGORITHM_SHA256;
     bc_hash_verify_parse_status_t status =
@@ -212,9 +207,8 @@ static void test_parse_ndjson_header_missing_algorithm(void** state)
 static void test_parse_ndjson_unknown_algorithm_rejected(void** state)
 {
     struct fixture* fixture = *state;
-    const char* content =
-        "{\"type\":\"header\",\"algorithm\":\"md5\"}\n"
-        "{\"type\":\"entry\",\"path\":\"/p\",\"digest\":\"abc\"}\n";
+    const char* content = "{\"type\":\"header\",\"algorithm\":\"md5\"}\n"
+                          "{\"type\":\"entry\",\"path\":\"/p\",\"digest\":\"abc\"}\n";
     assert_int_equal(write_string(fixture->digest_path, content), 0);
     bc_hash_algorithm_t algorithm = BC_HASH_ALGORITHM_SHA256;
     bc_hash_verify_parse_status_t status =

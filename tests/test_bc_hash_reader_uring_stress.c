@@ -96,8 +96,8 @@ static int bc_hash_uring_stress_spawn_and_wait(const char* fixture_root)
             dup2(devnull_fd, STDOUT_FILENO);
             close(devnull_fd);
         }
-        char* const execv_argv[] = {(char*)BC_HASH_TEST_BINARY_PATH, (char*)"hash", (char*)"--type=crc32", (char*)"--output=-",
-                                    (char*)fixture_root, NULL};
+        char* const execv_argv[] = {
+            (char*)BC_HASH_TEST_BINARY_PATH, (char*)"hash", (char*)"--type=crc32", (char*)"--output=-", (char*)fixture_root, NULL};
         execv(BC_HASH_TEST_BINARY_PATH, execv_argv);
         _exit(127);
     }
@@ -150,8 +150,8 @@ static void test_reader_uring_repeated_binary_runs_never_return_bad_file_descrip
     bc_hash_uring_stress_remove_fixture(fixture_root);
 
     if (failure_count > 0) {
-        fprintf(stderr, "bc-hash uring stress: %zu / %d binary runs failed on fixture %s\n",
-                failure_count, BC_HASH_URING_STRESS_FORK_COUNT, fixture_root);
+        fprintf(stderr, "bc-hash uring stress: %zu / %d binary runs failed on fixture %s\n", failure_count, BC_HASH_URING_STRESS_FORK_COUNT,
+                fixture_root);
     }
     assert_int_equal(failure_count, 0);
 }

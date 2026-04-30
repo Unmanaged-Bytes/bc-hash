@@ -66,12 +66,8 @@ static int bc_hash_json_test_run(const char* type_value, const char* target_path
             dup2(dev_null, STDERR_FILENO);
             close(dev_null);
         }
-        char* const execv_argv[] = {(char*)BC_HASH_TEST_BINARY_PATH,
-                                    (char*)"hash",
-                                    type_argument,
-                                    output_argument,
-                                    (char*)target_path,
-                                    NULL};
+        char* const execv_argv[] = {
+            (char*)BC_HASH_TEST_BINARY_PATH, (char*)"hash", type_argument, output_argument, (char*)target_path, NULL};
         execv(BC_HASH_TEST_BINARY_PATH, execv_argv);
         _exit(127);
     }
@@ -150,12 +146,13 @@ static void test_json_output_first_line_is_header_last_is_summary(void** state)
     assert_non_null(strstr(head_buffer, "1"));
 
     char algo_buffer[256];
-    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"header\") | .algorithm'", algo_buffer, sizeof(algo_buffer)) >= 0);
+    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"header\") | .algorithm'", algo_buffer, sizeof(algo_buffer)) >=
+                0);
     assert_non_null(strstr(algo_buffer, "sha256"));
 
     char digest_buffer[256];
-    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"entry\") | .digest'", digest_buffer,
-                                             sizeof(digest_buffer)) >= 0);
+    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"entry\") | .digest'", digest_buffer, sizeof(digest_buffer)) >=
+                0);
     assert_non_null(strstr(digest_buffer, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"));
 
     char summary_total_buffer[64];
@@ -180,14 +177,13 @@ static void test_json_output_counts_consistent(void** state)
     assert_int_equal(exit_status, 0);
 
     char consistency_buffer[64];
-    assert_true(bc_hash_json_test_jq_extract(output_path,
-                                             "'select(.type==\"summary\") | (.files_total == (.files_ok + .files_error))'",
+    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"summary\") | (.files_total == (.files_ok + .files_error))'",
                                              consistency_buffer, sizeof(consistency_buffer)) >= 0);
     assert_non_null(strstr(consistency_buffer, "true"));
 
     char total_buffer[64];
-    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"summary\") | .files_total'", total_buffer,
-                                             sizeof(total_buffer)) >= 0);
+    assert_true(
+        bc_hash_json_test_jq_extract(output_path, "'select(.type==\"summary\") | .files_total'", total_buffer, sizeof(total_buffer)) >= 0);
     assert_non_null(strstr(total_buffer, "3"));
 }
 
@@ -251,12 +247,13 @@ static void test_json_output_xxh3_algorithm_and_digest_length(void** state)
     assert_int_equal(bc_hash_json_test_jq_empty(output_path), 0);
 
     char algo_buffer[256];
-    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"header\") | .algorithm'", algo_buffer, sizeof(algo_buffer)) >= 0);
+    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"header\") | .algorithm'", algo_buffer, sizeof(algo_buffer)) >=
+                0);
     assert_non_null(strstr(algo_buffer, "xxh3"));
 
     char digest_buffer[256];
-    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"entry\") | .digest'", digest_buffer,
-                                             sizeof(digest_buffer)) >= 0);
+    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"entry\") | .digest'", digest_buffer, sizeof(digest_buffer)) >=
+                0);
     assert_non_null(strstr(digest_buffer, "78af5f94892f3950"));
 }
 
@@ -274,12 +271,13 @@ static void test_json_output_xxh128_algorithm_and_digest_length(void** state)
     assert_int_equal(bc_hash_json_test_jq_empty(output_path), 0);
 
     char algo_buffer[256];
-    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"header\") | .algorithm'", algo_buffer, sizeof(algo_buffer)) >= 0);
+    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"header\") | .algorithm'", algo_buffer, sizeof(algo_buffer)) >=
+                0);
     assert_non_null(strstr(algo_buffer, "xxh128"));
 
     char digest_buffer[256];
-    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"entry\") | .digest'", digest_buffer,
-                                             sizeof(digest_buffer)) >= 0);
+    assert_true(bc_hash_json_test_jq_extract(output_path, "'select(.type==\"entry\") | .digest'", digest_buffer, sizeof(digest_buffer)) >=
+                0);
     assert_non_null(strstr(digest_buffer, "06b05ab6733a618578af5f94892f3950"));
 }
 

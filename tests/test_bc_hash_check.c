@@ -115,7 +115,8 @@ static void test_check_simple_sha256_all_ok(void** state)
     const char* target_path = BC_HASH_TEST_FIXTURES_DIRECTORY "/check_abc.bin";
     const char* digest_path = BC_HASH_TEST_FIXTURES_DIRECTORY "/check_abc.sha256";
     assert_int_equal(bc_hash_check_test_write_file(target_path, "abc", 3), 0);
-    assert_int_equal(bc_hash_check_test_write_digest_simple(digest_path, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", target_path),
+    assert_int_equal(bc_hash_check_test_write_digest_simple(digest_path, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                                                            target_path),
                      0);
 
     const char* argv[] = {"check", digest_path};
@@ -133,7 +134,8 @@ static void test_check_simple_altered_file_failed(void** state)
     const char* target_path = BC_HASH_TEST_FIXTURES_DIRECTORY "/check_altered.bin";
     const char* digest_path = BC_HASH_TEST_FIXTURES_DIRECTORY "/check_altered.sha256";
     assert_int_equal(bc_hash_check_test_write_file(target_path, "abc", 3), 0);
-    assert_int_equal(bc_hash_check_test_write_digest_simple(digest_path, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", target_path),
+    assert_int_equal(bc_hash_check_test_write_digest_simple(digest_path, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                                                            target_path),
                      0);
     assert_int_equal(bc_hash_check_test_write_file(target_path, "xyz", 3), 0);
 
@@ -151,7 +153,8 @@ static void test_check_missing_file(void** state)
     const char* target_path = BC_HASH_TEST_FIXTURES_DIRECTORY "/check_not_there.bin";
     const char* digest_path = BC_HASH_TEST_FIXTURES_DIRECTORY "/check_missing.sha256";
     unlink(target_path);
-    assert_int_equal(bc_hash_check_test_write_digest_simple(digest_path, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", target_path),
+    assert_int_equal(bc_hash_check_test_write_digest_simple(digest_path, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                                                            target_path),
                      0);
 
     const char* argv[] = {"check", digest_path};
@@ -276,12 +279,11 @@ static void test_check_summary_counts(void** state)
     unlink(file_missing);
 
     char buffer[4096];
-    int written = snprintf(
-        buffer, sizeof(buffer),
-        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  %s\n"
-        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  %s\n"
-        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  %s\n",
-        file_ok, file_failed, file_missing);
+    int written = snprintf(buffer, sizeof(buffer),
+                           "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  %s\n"
+                           "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  %s\n"
+                           "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  %s\n",
+                           file_ok, file_failed, file_missing);
     assert_true(written > 0 && (size_t)written < sizeof(buffer));
     assert_int_equal(bc_hash_check_test_write_file(digest_path, buffer, (size_t)written), 0);
 

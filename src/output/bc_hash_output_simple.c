@@ -65,23 +65,23 @@ bool bc_hash_output_write_simple(bc_core_writer_t* writer, bc_hash_algorithm_t a
         }
         size_t hex_length = 0;
         switch (algorithm) {
-            case BC_HASH_ALGORITHM_CRC32:
-                bc_hash_output_write_hex_crc32(results[index].crc32_value, hex_buffer);
-                hex_length = BC_HASH_CRC32_HEX_LENGTH;
-                break;
-            case BC_HASH_ALGORITHM_XXH3:
-                bc_hash_output_encode_hex(results[index].xxh3_digest, BC_HASH_XXH3_DIGEST_SIZE, hex_buffer);
-                hex_length = BC_HASH_XXH3_HEX_LENGTH;
-                break;
-            case BC_HASH_ALGORITHM_XXH128:
-                bc_hash_output_encode_hex(results[index].xxh128_digest, BC_HASH_XXH128_DIGEST_SIZE, hex_buffer);
-                hex_length = BC_HASH_XXH128_HEX_LENGTH;
-                break;
-            case BC_HASH_ALGORITHM_SHA256:
-            default:
-                bc_hash_output_encode_hex(results[index].sha256_digest, BC_CORE_SHA256_DIGEST_SIZE, hex_buffer);
-                hex_length = BC_HASH_SHA256_HEX_LENGTH;
-                break;
+        case BC_HASH_ALGORITHM_CRC32:
+            bc_hash_output_write_hex_crc32(results[index].crc32_value, hex_buffer);
+            hex_length = BC_HASH_CRC32_HEX_LENGTH;
+            break;
+        case BC_HASH_ALGORITHM_XXH3:
+            bc_hash_output_encode_hex(results[index].xxh3_digest, BC_HASH_XXH3_DIGEST_SIZE, hex_buffer);
+            hex_length = BC_HASH_XXH3_HEX_LENGTH;
+            break;
+        case BC_HASH_ALGORITHM_XXH128:
+            bc_hash_output_encode_hex(results[index].xxh128_digest, BC_HASH_XXH128_DIGEST_SIZE, hex_buffer);
+            hex_length = BC_HASH_XXH128_HEX_LENGTH;
+            break;
+        case BC_HASH_ALGORITHM_SHA256:
+        default:
+            bc_hash_output_encode_hex(results[index].sha256_digest, BC_CORE_SHA256_DIGEST_SIZE, hex_buffer);
+            hex_length = BC_HASH_SHA256_HEX_LENGTH;
+            break;
         }
         if (!bc_core_writer_write_bytes(writer, hex_buffer, hex_length)) {
             return false;

@@ -106,21 +106,29 @@ static int bc_hash_filter_test_setup_corpus(const char* root)
     }
     char path_buffer[512];
     snprintf(path_buffer, sizeof(path_buffer), "%s/a.c", root);
-    if (bc_hash_filter_test_write_file(path_buffer, "abc", 3) != 0) return -1;
+    if (bc_hash_filter_test_write_file(path_buffer, "abc", 3) != 0)
+        return -1;
     snprintf(path_buffer, sizeof(path_buffer), "%s/b.c", root);
-    if (bc_hash_filter_test_write_file(path_buffer, "def", 3) != 0) return -1;
+    if (bc_hash_filter_test_write_file(path_buffer, "def", 3) != 0)
+        return -1;
     snprintf(path_buffer, sizeof(path_buffer), "%s/x.tmp", root);
-    if (bc_hash_filter_test_write_file(path_buffer, "tmp", 3) != 0) return -1;
+    if (bc_hash_filter_test_write_file(path_buffer, "tmp", 3) != 0)
+        return -1;
     snprintf(path_buffer, sizeof(path_buffer), "%s/y.log", root);
-    if (bc_hash_filter_test_write_file(path_buffer, "log", 3) != 0) return -1;
+    if (bc_hash_filter_test_write_file(path_buffer, "log", 3) != 0)
+        return -1;
     snprintf(path_buffer, sizeof(path_buffer), "%s/.git", root);
-    if (bc_hash_filter_test_ensure_directory(path_buffer) != 0) return -1;
+    if (bc_hash_filter_test_ensure_directory(path_buffer) != 0)
+        return -1;
     snprintf(path_buffer, sizeof(path_buffer), "%s/.git/config", root);
-    if (bc_hash_filter_test_write_file(path_buffer, "[core]", 6) != 0) return -1;
+    if (bc_hash_filter_test_write_file(path_buffer, "[core]", 6) != 0)
+        return -1;
     snprintf(path_buffer, sizeof(path_buffer), "%s/node_modules", root);
-    if (bc_hash_filter_test_ensure_directory(path_buffer) != 0) return -1;
+    if (bc_hash_filter_test_ensure_directory(path_buffer) != 0)
+        return -1;
     snprintf(path_buffer, sizeof(path_buffer), "%s/node_modules/index.js", root);
-    if (bc_hash_filter_test_write_file(path_buffer, "nope", 4) != 0) return -1;
+    if (bc_hash_filter_test_write_file(path_buffer, "nope", 4) != 0)
+        return -1;
     return 0;
 }
 
@@ -243,12 +251,9 @@ int main(void)
     bc_hash_filter_test_ensure_directory(BC_HASH_TEST_FIXTURES_DIRECTORY);
 
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_filter_no_filter_all_files),
-        cmocka_unit_test(test_filter_exclude_single_pattern),
-        cmocka_unit_test(test_filter_exclude_multiple_patterns),
-        cmocka_unit_test(test_filter_include_only_c_files),
-        cmocka_unit_test(test_filter_include_plus_exclude),
-        cmocka_unit_test(test_filter_directory_prune),
+        cmocka_unit_test(test_filter_no_filter_all_files),       cmocka_unit_test(test_filter_exclude_single_pattern),
+        cmocka_unit_test(test_filter_exclude_multiple_patterns), cmocka_unit_test(test_filter_include_only_c_files),
+        cmocka_unit_test(test_filter_include_plus_exclude),      cmocka_unit_test(test_filter_directory_prune),
         cmocka_unit_test(test_filter_basename_only_not_path),
     };
 

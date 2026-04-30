@@ -10,6 +10,7 @@
 #include "bc_io_file.h"
 #include "bc_io_walk.h"
 #include "bc_runtime_error_collector.h"
+#include "bc_runtime_signal.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -35,6 +36,18 @@ typedef struct bc_hash_walk_context {
     bc_allocators_context_t* main_memory_context;
     const bc_hash_filter_t* filter;
 } bc_hash_walk_context_t;
+
+/* cppcheck-suppress constParameterCallback; signature fixed by bc_io_walk_should_stop_fn */
+static bool bc_hash_walk_should_stop_check(void* user_data)
+{
+    const bc_runtime_signal_handler_t* handler = (const bc_runtime_signal_handler_t*)user_data;
+    if (handler == NULL) {
+        return false;
+    }
+    bool should_stop = false;
+    bc_runtime_signal_handler_should_stop(handler, &should_stop);
+    return should_stop;
+}
 
 static const char* bc_hash_walk_basename(const char* path, size_t path_length)
 {
@@ -203,10 +216,8 @@ static bool bc_hash_walk_append_root_file(bc_allocators_context_t* memory_contex
 }
 
 static void bc_hash_walk_run_on_directory(bc_hash_walk_context_t* context, bc_allocators_context_t* memory_context,
-                                          bc_concurrency_context_t* concurrency_context,
-                                          bc_runtime_error_collector_t* errors,
-                                          bc_concurrency_signal_handler_t* signal_handler,
-                                          const char* input_path)
+                                          bc_concurrency_context_t* concurrency_context, bc_runtime_error_collector_t* errors,
+                                          bc_runtime_signal_handler_t* signal_handler, const char* input_path)
 {
     size_t input_path_length = bc_hash_strings_length(input_path);
     while (input_path_length > 1 && input_path[input_path_length - 1] == '/') {
@@ -222,7 +233,8 @@ static void bc_hash_walk_run_on_directory(bc_hash_walk_context_t* context, bc_al
         .root_length = input_path_length,
         .main_memory_context = memory_context,
         .concurrency_context = concurrency_context,
-        .signal_handler = signal_handler,
+        .should_stop_check = bc_hash_walk_should_stop_check,
+        .should_stop_user_data = signal_handler,
         .queue_capacity = 0,
         .filter = bc_hash_walk_filter,
         .filter_user_data = context,
@@ -236,10 +248,8 @@ static void bc_hash_walk_run_on_directory(bc_hash_walk_context_t* context, bc_al
 }
 
 static void bc_hash_walk_process_input_path(bc_hash_walk_context_t* context, bc_allocators_context_t* memory_context,
-                                            bc_concurrency_context_t* concurrency_context,
-                                            bc_containers_vector_t* destination_entries,
-                                            bc_runtime_error_collector_t* errors,
-                                            bc_concurrency_signal_handler_t* signal_handler,
+                                            bc_concurrency_context_t* concurrency_context, bc_containers_vector_t* destination_entries,
+                                            bc_runtime_error_collector_t* errors, bc_runtime_signal_handler_t* signal_handler,
                                             const char* input_path)
 {
     struct stat input_stat_buffer;
@@ -248,8 +258,7 @@ static void bc_hash_walk_process_input_path(bc_hash_walk_context_t* context, bc_
         return;
     }
     if (S_ISREG(input_stat_buffer.st_mode)) {
-        bc_hash_walk_append_root_file(memory_context, destination_entries, errors, input_path,
-                                      (size_t)input_stat_buffer.st_size);
+        bc_hash_walk_append_root_file(memory_context, destination_entries, errors, input_path, (size_t)input_stat_buffer.st_size);
     } else if (S_ISDIR(input_stat_buffer.st_mode)) {
         bc_hash_walk_run_on_directory(context, memory_context, concurrency_context, errors, signal_handler, input_path);
     } else if (S_ISLNK(input_stat_buffer.st_mode)) {
@@ -260,10 +269,8 @@ static void bc_hash_walk_process_input_path(bc_hash_walk_context_t* context, bc_
 }
 
 static void bc_hash_walk_expand_glob(bc_hash_walk_context_t* context, bc_allocators_context_t* memory_context,
-                                     bc_concurrency_context_t* concurrency_context,
-                                     bc_containers_vector_t* destination_entries,
-                                     bc_runtime_error_collector_t* errors,
-                                     bc_concurrency_signal_handler_t* signal_handler,
+                                     bc_concurrency_context_t* concurrency_context, bc_containers_vector_t* destination_entries,
+                                     bc_runtime_error_collector_t* errors, bc_runtime_signal_handler_t* signal_handler,
                                      const char* pattern)
 {
     glob_t glob_buffer;
@@ -275,15 +282,15 @@ static void bc_hash_walk_expand_glob(bc_hash_walk_context_t* context, bc_allocat
         return;
     }
     for (size_t index = 0; index < glob_buffer.gl_pathc; ++index) {
-        bc_hash_walk_process_input_path(context, memory_context, concurrency_context, destination_entries, errors,
-                                        signal_handler, glob_buffer.gl_pathv[index]);
+        bc_hash_walk_process_input_path(context, memory_context, concurrency_context, destination_entries, errors, signal_handler,
+                                        glob_buffer.gl_pathv[index]);
     }
     globfree(&glob_buffer);
 }
 
 bool bc_hash_discovery_expand_parallel(bc_allocators_context_t* memory_context, bc_concurrency_context_t* concurrency_context,
                                        bc_containers_vector_t* entries, bc_runtime_error_collector_t* errors,
-                                       bc_concurrency_signal_handler_t* signal_handler, const bc_hash_filter_t* filter,
+                                       bc_runtime_signal_handler_t* signal_handler, const bc_hash_filter_t* filter,
                                        const char* const* input_paths, size_t input_count)
 {
     bc_hash_walk_context_t context = {

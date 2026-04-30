@@ -13,9 +13,9 @@
 
 #define BC_HASH_RING_QUEUE_DEPTH ((unsigned int)(BC_HASH_READER_RING_SLOT_COUNT * 5U))
 #define BC_HASH_RING_OP_OPENAT 0U
-#define BC_HASH_RING_OP_READ   1U
-#define BC_HASH_RING_OP_PROBE  2U
-#define BC_HASH_RING_OP_CLOSE  3U
+#define BC_HASH_RING_OP_READ 1U
+#define BC_HASH_RING_OP_PROBE 2U
+#define BC_HASH_RING_OP_CLOSE 3U
 
 typedef struct bc_hash_reader_ring {
     struct io_uring ring;
@@ -72,9 +72,8 @@ static unsigned int bc_hash_ring_decode_operation(uint64_t user_data)
     return (unsigned int)(user_data & 0xFFU);
 }
 
-static bool bc_hash_ring_submit_slot(struct io_uring* ring, unsigned int slot_index,
-                                     const bc_hash_reader_batch_item_t* item, void* buffer_address,
-                                     unsigned char* probe_byte_address)
+static bool bc_hash_ring_submit_slot(struct io_uring* ring, unsigned int slot_index, const bc_hash_reader_batch_item_t* item,
+                                     void* buffer_address, unsigned char* probe_byte_address)
 {
     struct io_uring_sqe* open_sqe = io_uring_get_sqe(ring);
     struct io_uring_sqe* read_sqe = io_uring_get_sqe(ring);
@@ -109,8 +108,7 @@ static bool bc_hash_ring_fits_in_slot(const bc_hash_reader_batch_item_t* item)
 }
 
 static bool bc_hash_ring_handle_cqe(bc_hash_reader_ring_t* ring, bc_hash_reader_batch_item_t* items, const size_t* slot_to_item,
-                                    size_t* slot_bytes_read, bc_hash_reader_consumer_fn_t consumer_function,
-                                    struct io_uring_cqe* cqe)
+                                    size_t* slot_bytes_read, bc_hash_reader_consumer_fn_t consumer_function, struct io_uring_cqe* cqe)
 {
     uint64_t user_data = io_uring_cqe_get_data64(cqe);
     unsigned int slot_index = bc_hash_ring_decode_slot(user_data);

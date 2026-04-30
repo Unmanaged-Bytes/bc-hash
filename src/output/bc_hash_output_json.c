@@ -21,35 +21,35 @@ static bool bc_hash_output_json_write_escaped_string(bc_core_writer_t* writer, c
         unsigned char byte_value = *cursor;
         bool ok = true;
         switch (byte_value) {
-            case '"':
-                ok = BC_CORE_WRITER_PUTS(writer, "\\\"");
-                break;
-            case '\\':
-                ok = BC_CORE_WRITER_PUTS(writer, "\\\\");
-                break;
-            case '\b':
-                ok = BC_CORE_WRITER_PUTS(writer, "\\b");
-                break;
-            case '\f':
-                ok = BC_CORE_WRITER_PUTS(writer, "\\f");
-                break;
-            case '\n':
-                ok = BC_CORE_WRITER_PUTS(writer, "\\n");
-                break;
-            case '\r':
-                ok = BC_CORE_WRITER_PUTS(writer, "\\r");
-                break;
-            case '\t':
-                ok = BC_CORE_WRITER_PUTS(writer, "\\t");
-                break;
-            default:
-                if (byte_value < 0x20u) {
-                    ok = BC_CORE_WRITER_PUTS(writer, "\\u")
-                         && bc_core_writer_write_unsigned_integer_64_hexadecimal_padded(writer, (uint64_t)byte_value, 4U);
-                } else {
-                    ok = bc_core_writer_write_char(writer, (char)byte_value);
-                }
-                break;
+        case '"':
+            ok = BC_CORE_WRITER_PUTS(writer, "\\\"");
+            break;
+        case '\\':
+            ok = BC_CORE_WRITER_PUTS(writer, "\\\\");
+            break;
+        case '\b':
+            ok = BC_CORE_WRITER_PUTS(writer, "\\b");
+            break;
+        case '\f':
+            ok = BC_CORE_WRITER_PUTS(writer, "\\f");
+            break;
+        case '\n':
+            ok = BC_CORE_WRITER_PUTS(writer, "\\n");
+            break;
+        case '\r':
+            ok = BC_CORE_WRITER_PUTS(writer, "\\r");
+            break;
+        case '\t':
+            ok = BC_CORE_WRITER_PUTS(writer, "\\t");
+            break;
+        default:
+            if (byte_value < 0x20u) {
+                ok = BC_CORE_WRITER_PUTS(writer, "\\u") &&
+                     bc_core_writer_write_unsigned_integer_64_hexadecimal_padded(writer, (uint64_t)byte_value, 4U);
+            } else {
+                ok = bc_core_writer_write_char(writer, (char)byte_value);
+            }
+            break;
         }
         if (!ok) {
             return false;
@@ -62,15 +62,15 @@ static bool bc_hash_output_json_write_escaped_string(bc_core_writer_t* writer, c
 static const char* bc_hash_output_json_algorithm_name(bc_hash_algorithm_t algorithm)
 {
     switch (algorithm) {
-        case BC_HASH_ALGORITHM_CRC32:
-            return "crc32";
-        case BC_HASH_ALGORITHM_XXH3:
-            return "xxh3";
-        case BC_HASH_ALGORITHM_XXH128:
-            return "xxh128";
-        case BC_HASH_ALGORITHM_SHA256:
-        default:
-            return "sha256";
+    case BC_HASH_ALGORITHM_CRC32:
+        return "crc32";
+    case BC_HASH_ALGORITHM_XXH3:
+        return "xxh3";
+    case BC_HASH_ALGORITHM_XXH128:
+        return "xxh128";
+    case BC_HASH_ALGORITHM_SHA256:
+    default:
+        return "sha256";
     }
 }
 
@@ -127,14 +127,16 @@ static bool bc_hash_output_json_write_hex_bytes(bc_core_writer_t* writer, const 
     return bc_core_writer_write_char(writer, '"');
 }
 
-static bool bc_hash_output_json_write_header(bc_core_writer_t* writer, bc_hash_algorithm_t algorithm, const bc_hash_output_context_t* context)
+static bool bc_hash_output_json_write_header(bc_core_writer_t* writer, bc_hash_algorithm_t algorithm,
+                                             const bc_hash_output_context_t* context)
 {
     char timestamp_buffer[32];
     size_t timestamp_length = 0;
     uint64_t started_at_unix_ms = context != NULL ? context->started_at_unix_ms : 0;
     bc_hash_output_json_format_timestamp(started_at_unix_ms, timestamp_buffer, sizeof(timestamp_buffer), &timestamp_length);
 
-    const char* tool_version = (context != NULL && context->tool_version != NULL) ? context->tool_version : BC_HASH_OUTPUT_JSON_DEFAULT_VERSION;
+    const char* tool_version =
+        (context != NULL && context->tool_version != NULL) ? context->tool_version : BC_HASH_OUTPUT_JSON_DEFAULT_VERSION;
 
     if (!BC_CORE_WRITER_PUTS(writer, "{\"type\":\"header\",\"tool\":\"" BC_HASH_OUTPUT_JSON_TOOL_NAME "\",\"version\":")) {
         return false;
@@ -164,8 +166,7 @@ static bool bc_hash_output_json_write_header(bc_core_writer_t* writer, bc_hash_a
 }
 
 static bool bc_hash_output_json_write_entry_success(bc_core_writer_t* writer, bc_hash_algorithm_t algorithm,
-                                                    const bc_hash_file_entry_t* entry,
-                                                    const bc_hash_result_entry_t* result)
+                                                    const bc_hash_file_entry_t* entry, const bc_hash_result_entry_t* result)
 {
     if (!BC_CORE_WRITER_PUTS(writer, "{\"type\":\"entry\",\"path\":")) {
         return false;
@@ -178,19 +179,19 @@ static bool bc_hash_output_json_write_entry_success(bc_core_writer_t* writer, bc
     }
     bool ok = true;
     switch (algorithm) {
-        case BC_HASH_ALGORITHM_CRC32:
-            ok = bc_hash_output_json_write_hex_crc32(writer, result->crc32_value);
-            break;
-        case BC_HASH_ALGORITHM_XXH3:
-            ok = bc_hash_output_json_write_hex_bytes(writer, result->xxh3_digest, BC_HASH_XXH3_DIGEST_SIZE);
-            break;
-        case BC_HASH_ALGORITHM_XXH128:
-            ok = bc_hash_output_json_write_hex_bytes(writer, result->xxh128_digest, BC_HASH_XXH128_DIGEST_SIZE);
-            break;
-        case BC_HASH_ALGORITHM_SHA256:
-        default:
-            ok = bc_hash_output_json_write_hex_bytes(writer, result->sha256_digest, BC_CORE_SHA256_DIGEST_SIZE);
-            break;
+    case BC_HASH_ALGORITHM_CRC32:
+        ok = bc_hash_output_json_write_hex_crc32(writer, result->crc32_value);
+        break;
+    case BC_HASH_ALGORITHM_XXH3:
+        ok = bc_hash_output_json_write_hex_bytes(writer, result->xxh3_digest, BC_HASH_XXH3_DIGEST_SIZE);
+        break;
+    case BC_HASH_ALGORITHM_XXH128:
+        ok = bc_hash_output_json_write_hex_bytes(writer, result->xxh128_digest, BC_HASH_XXH128_DIGEST_SIZE);
+        break;
+    case BC_HASH_ALGORITHM_SHA256:
+    default:
+        ok = bc_hash_output_json_write_hex_bytes(writer, result->sha256_digest, BC_CORE_SHA256_DIGEST_SIZE);
+        break;
     }
     if (!ok) {
         return false;
