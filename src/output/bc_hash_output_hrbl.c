@@ -159,7 +159,7 @@ bool bc_hash_output_write_hrbl(bc_core_writer_t* output_writer, bc_hash_algorith
     }
 
     bc_hrbl_writer_t* writer = NULL;
-    if (!bc_hrbl_writer_create(memory_context, &writer)) {
+    if (!bc_hrbl_writer_create(memory_context, NULL, &writer)) {
         bc_hash_output_hrbl_emit_stderr("bc-hash: hrbl output: writer create failed\n");
         bc_allocators_context_destroy(memory_context);
         return false;
@@ -250,7 +250,7 @@ bool bc_hash_output_write_hrbl(bc_core_writer_t* output_writer, bc_hash_algorith
 
 cleanup:
     if (buffer != NULL) {
-        bc_hrbl_free_buffer(memory_context, buffer);
+        bc_hrbl_writer_free_buffer(memory_context, buffer);
     }
     bc_hrbl_writer_destroy(writer);
     bc_allocators_context_destroy(memory_context);
