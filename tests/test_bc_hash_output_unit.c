@@ -282,7 +282,7 @@ static void test_hrbl_magic_and_roundtrip(void** state)
     assert_true(bc_hrbl_reader_get_uint64(&files_error, &files_error_value));
     assert_int_equal((int)files_error_value, 1);
 
-    bc_hrbl_reader_destroy(reader);
+    bc_hrbl_reader_close(reader);
 }
 
 static void test_hrbl_file_entry_ok_and_error(void** state)
@@ -323,7 +323,7 @@ static void test_hrbl_file_entry_ok_and_error(void** state)
     assert_true(bc_hrbl_reader_get_int64(&bad_errno, &errno_value));
     assert_int_equal((int)errno_value, EACCES);
 
-    bc_hrbl_reader_destroy(reader);
+    bc_hrbl_reader_close(reader);
 }
 
 int main(void)
