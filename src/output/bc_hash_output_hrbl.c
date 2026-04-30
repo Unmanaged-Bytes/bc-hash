@@ -238,7 +238,9 @@ bool bc_hash_output_write_hrbl(bc_core_writer_t* output_writer, bc_hash_algorith
         goto cleanup;
 
     if (!bc_hrbl_writer_finalize_to_buffer(writer, &buffer, &buffer_size)) {
-        bc_hash_output_hrbl_emit_stderr("bc-hash: hrbl output: finalize failed\n");
+        bc_hash_output_hrbl_emit_stderr("bc-hash: hrbl output: finalize failed (");
+        bc_hash_output_hrbl_emit_stderr(bc_hrbl_writer_error_string(bc_hrbl_writer_last_error(writer)));
+        bc_hash_output_hrbl_emit_stderr(")\n");
         goto cleanup;
     }
 
