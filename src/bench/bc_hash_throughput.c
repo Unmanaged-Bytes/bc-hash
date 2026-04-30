@@ -102,7 +102,8 @@ static double bc_hash_throughput_measure_crc32c(const uint8_t* buffer)
 }
 
 static double bc_hash_throughput_measure_memory_bandwidth_with_copy_fn(uint8_t* buffer,
-                                                                       void (*copy_function)(void* destination, const void* source, size_t length))
+                                                                       void (*copy_function)(void* destination, const void* source,
+                                                                                             size_t length))
 {
     size_t half_size = BC_HASH_THROUGHPUT_BUFFER_BYTES / 2;
     uint8_t* source_region = buffer;
@@ -170,7 +171,8 @@ static double bc_hash_throughput_measure_parallel_startup_overhead(bc_concurrenc
         bc_concurrency_dispatch_and_wait(concurrency_context);
     }
     double warm_end_seconds = bc_hash_throughput_monotonic_seconds();
-    double warm_per_iteration_microseconds = ((warm_end_seconds - warm_start_seconds) / (double)BC_HASH_THROUGHPUT_STARTUP_ITERATION_COUNT) * 1e6;
+    double warm_per_iteration_microseconds =
+        ((warm_end_seconds - warm_start_seconds) / (double)BC_HASH_THROUGHPUT_STARTUP_ITERATION_COUNT) * 1e6;
 
     return cold_first_dispatch_microseconds > warm_per_iteration_microseconds ? cold_first_dispatch_microseconds
                                                                               : warm_per_iteration_microseconds;
@@ -224,8 +226,7 @@ static double bc_hash_throughput_measure_per_file_cost_warm(void)
     return per_iteration_seconds * 1e6;
 }
 
-bool bc_hash_throughput_measure(bc_concurrency_context_t* concurrency_context,
-                                bc_hash_throughput_constants_t* out_constants)
+bool bc_hash_throughput_measure(bc_concurrency_context_t* concurrency_context, bc_hash_throughput_constants_t* out_constants)
 {
     uint8_t* buffer = NULL;
     if (!bc_hash_throughput_allocate_buffer(&buffer)) {

@@ -41,3 +41,5 @@ debian/tmp/
 # Release artefact staging
 dist/
 deps/
+
+reports/

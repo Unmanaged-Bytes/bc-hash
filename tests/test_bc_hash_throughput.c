@@ -87,8 +87,10 @@ static void test_cache_store_then_load_round_trips_constants(void** state)
 
     assert_true(reloaded_constants.sha256_gigabytes_per_second - original_constants.sha256_gigabytes_per_second < 0.001);
     assert_true(reloaded_constants.crc32c_gigabytes_per_second - original_constants.crc32c_gigabytes_per_second < 0.001);
-    assert_true(reloaded_constants.memory_bandwidth_gigabytes_per_second - original_constants.memory_bandwidth_gigabytes_per_second < 0.001);
-    assert_true(reloaded_constants.parallel_startup_overhead_microseconds - original_constants.parallel_startup_overhead_microseconds < 0.001);
+    assert_true(reloaded_constants.memory_bandwidth_gigabytes_per_second - original_constants.memory_bandwidth_gigabytes_per_second <
+                0.001);
+    assert_true(reloaded_constants.parallel_startup_overhead_microseconds - original_constants.parallel_startup_overhead_microseconds <
+                0.001);
     assert_true(reloaded_constants.per_file_cost_warm_microseconds - original_constants.per_file_cost_warm_microseconds < 0.001);
 
     unlink(cache_path);
@@ -102,15 +104,14 @@ static void test_cache_load_returns_false_when_cpu_model_mismatches(void** state
     assert_true(temp_fd >= 0);
     FILE* stream = fdopen(temp_fd, "w");
     assert_non_null(stream);
-    fprintf(stream,
-            "cpu_model=Fabricated CPU Model That Does Not Exist\n"
-            "microcode=0xdeadbeef\n"
-            "kernel_version=99.99.99-fake\n"
-            "sha256_gbps=1.0\n"
-            "crc32c_gbps=1.0\n"
-            "mem_bw_gbps=1.0\n"
-            "parallel_startup_us=1.0\n"
-            "per_file_cost_us=1.0\n");
+    fprintf(stream, "cpu_model=Fabricated CPU Model That Does Not Exist\n"
+                    "microcode=0xdeadbeef\n"
+                    "kernel_version=99.99.99-fake\n"
+                    "sha256_gbps=1.0\n"
+                    "crc32c_gbps=1.0\n"
+                    "mem_bw_gbps=1.0\n"
+                    "parallel_startup_us=1.0\n"
+                    "per_file_cost_us=1.0\n");
     fclose(stream);
 
     bc_hash_throughput_constants_t constants;

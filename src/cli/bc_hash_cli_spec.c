@@ -46,7 +46,8 @@ static const bc_runtime_cli_option_spec_t bc_hash_global_options[] = {
         .type = BC_RUNTIME_CLI_OPTION_STRING,
         .default_value = "auto",
         .value_placeholder = "mono|auto|io|N",
-        .help_summary = "thread mode: mono (single-thread, alias 0), auto (CPU-bound, physical cores - 1, default), io (I/O-bound, logical processors - 1, oversubscribe), or N (1..logical_cpu_count)",
+        .help_summary =
+            "thread mode: mono (single-thread, alias 0), auto (CPU-bound, physical cores - 1, default), io (I/O-bound, logical processors - 1, oversubscribe), or N (1..logical_cpu_count)",
     },
 };
 

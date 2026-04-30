@@ -182,7 +182,7 @@ static bool bc_hash_check_run(const bc_runtime_t* application, bc_hash_applicati
         return false;
     }
 
-    bc_concurrency_signal_handler_t* signal_handler = NULL;
+    bc_runtime_signal_handler_t* signal_handler = NULL;
     bc_runtime_signal_handler(application, &signal_handler);
 
     bc_hash_verify_parse_status_t parse_status =
@@ -257,7 +257,7 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
     const char* const* positional_argument_values = state->cli_options.positional_argument_values;
     size_t positional_argument_count = (size_t)state->cli_options.positional_argument_count;
 
-    bc_concurrency_signal_handler_t* signal_handler = NULL;
+    bc_runtime_signal_handler_t* signal_handler = NULL;
     bc_runtime_signal_handler(application, &signal_handler);
 
     size_t discovery_worker_count = bc_concurrency_effective_worker_count(concurrency_context);
@@ -300,8 +300,8 @@ static bool bc_hash_application_run(const bc_runtime_t* application, void* user_
     bool should_go_multithread;
     if (effective_worker_count < 2) {
         should_go_multithread = false;
-    } else if (state->cli_options.threads_mode == BC_HASH_THREADS_MODE_EXPLICIT
-               || state->cli_options.threads_mode == BC_HASH_THREADS_MODE_IO) {
+    } else if (state->cli_options.threads_mode == BC_HASH_THREADS_MODE_EXPLICIT ||
+               state->cli_options.threads_mode == BC_HASH_THREADS_MODE_IO) {
         should_go_multithread = true;
     } else if (entry_count == 1) {
         should_go_multithread = false;

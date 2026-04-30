@@ -18,8 +18,8 @@ struct bc_hash_filter {
     char* exclude_buffer;
 };
 
-static bool bc_hash_filter_count_and_split(bc_allocators_context_t* memory_context, const char* list, char** out_buffer, char*** out_patterns,
-                                           size_t* out_count)
+static bool bc_hash_filter_count_and_split(bc_allocators_context_t* memory_context, const char* list, char** out_buffer,
+                                           char*** out_patterns, size_t* out_count)
 {
     if (list == NULL || list[0] == '\0') {
         *out_buffer = NULL;

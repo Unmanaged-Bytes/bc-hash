@@ -283,8 +283,8 @@ static void test_sequential_walk_mono_thread(void** state)
 
     char output_buffer[BC_HASH_TEST_OUTPUT_BUFFER_SIZE];
     int exit_status = -1;
-    assert_int_equal(bc_hash_test_run_capture_with_threads("sha256", directory_path, "0", output_buffer, sizeof(output_buffer), &exit_status),
-                     0);
+    assert_int_equal(
+        bc_hash_test_run_capture_with_threads("sha256", directory_path, "0", output_buffer, sizeof(output_buffer), &exit_status), 0);
     assert_int_equal(exit_status, 0);
     assert_non_null(strstr(output_buffer, "root.bin"));
     assert_non_null(strstr(output_buffer, "leaf.bin"));
@@ -296,9 +296,9 @@ static void test_sequential_walk_missing_path_mono(void** state)
     (void)state;
     char output_buffer[BC_HASH_TEST_OUTPUT_BUFFER_SIZE];
     int exit_status = -1;
-    assert_int_equal(bc_hash_test_run_capture_with_threads("sha256", "/nope/does-not-exist", "0", output_buffer, sizeof(output_buffer),
-                                                           &exit_status),
-                     0);
+    assert_int_equal(
+        bc_hash_test_run_capture_with_threads("sha256", "/nope/does-not-exist", "0", output_buffer, sizeof(output_buffer), &exit_status),
+        0);
     assert_int_equal(exit_status, 1);
 }
 

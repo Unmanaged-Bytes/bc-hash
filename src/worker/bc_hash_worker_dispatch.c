@@ -26,16 +26,16 @@ typedef struct bc_hash_dispatch_context {
     size_t batch_count;
     size_t ring_slot_index;
     bc_hash_algorithm_t algorithm;
-    bc_concurrency_signal_handler_t* signal_handler;
+    bc_runtime_signal_handler_t* signal_handler;
 } bc_hash_dispatch_context_t;
 
-static bool bc_hash_dispatch_should_stop(const bc_concurrency_signal_handler_t* signal_handler)
+static bool bc_hash_dispatch_should_stop(const bc_runtime_signal_handler_t* signal_handler)
 {
     if (signal_handler == NULL) {
         return false;
     }
     bool should_stop = false;
-    bc_concurrency_signal_handler_should_stop(signal_handler, &should_stop);
+    bc_runtime_signal_handler_should_stop(signal_handler, &should_stop);
     return should_stop;
 }
 
@@ -112,35 +112,35 @@ static bool bc_hash_dispatch_consumer_xxh128(void* consumer_context, const void*
 static bc_hash_reader_consumer_fn_t bc_hash_dispatch_consumer_function_for(bc_hash_algorithm_t algorithm)
 {
     switch (algorithm) {
-        case BC_HASH_ALGORITHM_CRC32:
-            return bc_hash_dispatch_consumer_crc32;
-        case BC_HASH_ALGORITHM_XXH3:
-            return bc_hash_dispatch_consumer_xxh3;
-        case BC_HASH_ALGORITHM_XXH128:
-            return bc_hash_dispatch_consumer_xxh128;
-        case BC_HASH_ALGORITHM_SHA256:
-        default:
-            return bc_hash_dispatch_consumer_sha256;
+    case BC_HASH_ALGORITHM_CRC32:
+        return bc_hash_dispatch_consumer_crc32;
+    case BC_HASH_ALGORITHM_XXH3:
+        return bc_hash_dispatch_consumer_xxh3;
+    case BC_HASH_ALGORITHM_XXH128:
+        return bc_hash_dispatch_consumer_xxh128;
+    case BC_HASH_ALGORITHM_SHA256:
+    default:
+        return bc_hash_dispatch_consumer_sha256;
     }
 }
 
 static void bc_hash_dispatch_consumer_begin(bc_hash_algorithm_t algorithm, bc_hash_consumer_state_t* state)
 {
     switch (algorithm) {
-        case BC_HASH_ALGORITHM_CRC32:
-            state->algo.crc32.running_crc = 0;
-            state->algo.crc32.first_chunk = true;
-            return;
-        case BC_HASH_ALGORITHM_XXH3:
-            XXH3_64bits_reset(&state->algo.xxh3.digest_context);
-            return;
-        case BC_HASH_ALGORITHM_XXH128:
-            XXH3_128bits_reset(&state->algo.xxh3.digest_context);
-            return;
-        case BC_HASH_ALGORITHM_SHA256:
-        default:
-            bc_core_sha256_init(&state->algo.sha256.digest_context);
-            return;
+    case BC_HASH_ALGORITHM_CRC32:
+        state->algo.crc32.running_crc = 0;
+        state->algo.crc32.first_chunk = true;
+        return;
+    case BC_HASH_ALGORITHM_XXH3:
+        XXH3_64bits_reset(&state->algo.xxh3.digest_context);
+        return;
+    case BC_HASH_ALGORITHM_XXH128:
+        XXH3_128bits_reset(&state->algo.xxh3.digest_context);
+        return;
+    case BC_HASH_ALGORITHM_SHA256:
+    default:
+        bc_core_sha256_init(&state->algo.sha256.digest_context);
+        return;
     }
 }
 
@@ -148,22 +148,22 @@ static bool bc_hash_dispatch_consumer_finalize(bc_hash_algorithm_t algorithm, bc
                                                bc_hash_result_entry_t* result)
 {
     switch (algorithm) {
-        case BC_HASH_ALGORITHM_CRC32:
-            result->crc32_value = state->algo.crc32.running_crc;
-            return true;
-        case BC_HASH_ALGORITHM_XXH3: {
-            XXH64_hash_t xxh3_hash = XXH3_64bits_digest(&state->algo.xxh3.digest_context);
-            XXH64_canonicalFromHash((XXH64_canonical_t*)result->xxh3_digest, xxh3_hash);
-            return true;
-        }
-        case BC_HASH_ALGORITHM_XXH128: {
-            XXH128_hash_t xxh128_hash = XXH3_128bits_digest(&state->algo.xxh3.digest_context);
-            XXH128_canonicalFromHash((XXH128_canonical_t*)result->xxh128_digest, xxh128_hash);
-            return true;
-        }
-        case BC_HASH_ALGORITHM_SHA256:
-        default:
-            return bc_core_sha256_finalize(&state->algo.sha256.digest_context, result->sha256_digest);
+    case BC_HASH_ALGORITHM_CRC32:
+        result->crc32_value = state->algo.crc32.running_crc;
+        return true;
+    case BC_HASH_ALGORITHM_XXH3: {
+        XXH64_hash_t xxh3_hash = XXH3_64bits_digest(&state->algo.xxh3.digest_context);
+        XXH64_canonicalFromHash((XXH64_canonical_t*)result->xxh3_digest, xxh3_hash);
+        return true;
+    }
+    case BC_HASH_ALGORITHM_XXH128: {
+        XXH128_hash_t xxh128_hash = XXH3_128bits_digest(&state->algo.xxh3.digest_context);
+        XXH128_canonicalFromHash((XXH128_canonical_t*)result->xxh128_digest, xxh128_hash);
+        return true;
+    }
+    case BC_HASH_ALGORITHM_SHA256:
+    default:
+        return bc_core_sha256_finalize(&state->algo.sha256.digest_context, result->sha256_digest);
     }
 }
 
@@ -287,8 +287,9 @@ static void bc_hash_dispatch_ring_destroy(void* data, size_t worker_index, void*
 }
 
 bool bc_hash_worker_dispatch_all(bc_concurrency_context_t* concurrency, bc_hash_algorithm_t algorithm,
-                                 const bc_containers_vector_t* entries, bc_hash_result_entry_t* results, bc_runtime_error_collector_t* errors,
-                                 bc_allocators_context_t* main_memory_context, bc_concurrency_signal_handler_t* signal_handler)
+                                 const bc_containers_vector_t* entries, bc_hash_result_entry_t* results,
+                                 bc_runtime_error_collector_t* errors, bc_allocators_context_t* main_memory_context,
+                                 bc_runtime_signal_handler_t* signal_handler)
 {
     size_t entry_count = bc_containers_vector_length(entries);
     if (entry_count == 0) {
@@ -350,8 +351,7 @@ bool bc_hash_worker_dispatch_all(bc_concurrency_context_t* concurrency, bc_hash_
 
 bool bc_hash_worker_dispatch_sequential(bc_hash_algorithm_t algorithm, const bc_containers_vector_t* entries,
                                         bc_hash_result_entry_t* results, bc_runtime_error_collector_t* errors,
-                                        bc_allocators_context_t* main_memory_context,
-                                        const bc_concurrency_signal_handler_t* signal_handler)
+                                        bc_allocators_context_t* main_memory_context, const bc_runtime_signal_handler_t* signal_handler)
 {
     size_t entry_count = bc_containers_vector_length(entries);
     if (entry_count == 0) {

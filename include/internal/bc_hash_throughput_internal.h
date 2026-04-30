@@ -17,18 +17,15 @@ typedef struct bc_hash_throughput_constants {
     double per_file_cost_warm_microseconds;
 } bc_hash_throughput_constants_t;
 
-bool bc_hash_throughput_measure(bc_concurrency_context_t* concurrency_context,
-                                bc_hash_throughput_constants_t* out_constants);
+bool bc_hash_throughput_measure(bc_concurrency_context_t* concurrency_context, bc_hash_throughput_constants_t* out_constants);
 
-bool bc_hash_throughput_cache_read_host_signature(char* out_cpu_model, size_t cpu_model_capacity,
-                                                  char* out_microcode, size_t microcode_capacity,
-                                                  char* out_kernel_version, size_t kernel_version_capacity);
+bool bc_hash_throughput_cache_read_host_signature(char* out_cpu_model, size_t cpu_model_capacity, char* out_microcode,
+                                                  size_t microcode_capacity, char* out_kernel_version, size_t kernel_version_capacity);
 
 bool bc_hash_throughput_cache_load(const char* absolute_cache_path, bc_hash_throughput_constants_t* out_constants);
 
 bool bc_hash_throughput_cache_store(const char* absolute_cache_path, const bc_hash_throughput_constants_t* constants);
 
-bool bc_hash_throughput_get_or_measure(bc_concurrency_context_t* concurrency_context,
-                                       bc_hash_throughput_constants_t* out_constants);
+bool bc_hash_throughput_get_or_measure(bc_concurrency_context_t* concurrency_context, bc_hash_throughput_constants_t* out_constants);
 
 #endif /* BC_HASH_THROUGHPUT_INTERNAL_H */

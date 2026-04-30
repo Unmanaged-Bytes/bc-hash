@@ -24,7 +24,7 @@ typedef struct bc_hash_walk_state {
     bc_containers_vector_t* entries;
     bc_runtime_error_collector_t* errors;
     bc_io_file_inode_set_t* visited_directories;
-    bc_concurrency_signal_handler_t* signal_handler;
+    bc_runtime_signal_handler_t* signal_handler;
     const bc_hash_filter_t* filter;
 } bc_hash_walk_state_t;
 
@@ -34,7 +34,7 @@ static bool bc_hash_walk_should_stop(const bc_hash_walk_state_t* state)
         return false;
     }
     bool should_stop = false;
-    bc_concurrency_signal_handler_should_stop(state->signal_handler, &should_stop);
+    bc_runtime_signal_handler_should_stop(state->signal_handler, &should_stop);
     return should_stop;
 }
 
@@ -275,8 +275,8 @@ static bool bc_hash_walk_expand_glob(bc_hash_walk_state_t* state, const char* pa
         size_t matched_path_length = 0;
         size_t pattern_length = 0;
         bool matches_exactly = false;
-        if (bc_core_length(matched_path, '\0', &matched_path_length) && bc_core_length(pattern, '\0', &pattern_length)
-            && matched_path_length == pattern_length) {
+        if (bc_core_length(matched_path, '\0', &matched_path_length) && bc_core_length(pattern, '\0', &pattern_length) &&
+            matched_path_length == pattern_length) {
             (void)bc_core_equal(matched_path, pattern, matched_path_length, &matches_exactly);
         }
         if (matches_exactly) {
@@ -295,9 +295,9 @@ static bool bc_hash_walk_expand_glob(bc_hash_walk_state_t* state, const char* pa
     return any_match;
 }
 
-bool bc_hash_discovery_expand(bc_allocators_context_t* memory_context, bc_containers_vector_t* entries, bc_runtime_error_collector_t* errors,
-                              bc_concurrency_signal_handler_t* signal_handler, const bc_hash_filter_t* filter, const char* const* input_paths,
-                              size_t input_count)
+bool bc_hash_discovery_expand(bc_allocators_context_t* memory_context, bc_containers_vector_t* entries,
+                              bc_runtime_error_collector_t* errors, bc_runtime_signal_handler_t* signal_handler,
+                              const bc_hash_filter_t* filter, const char* const* input_paths, size_t input_count)
 {
     bc_hash_walk_state_t walk_state = {
         .memory_context = memory_context,

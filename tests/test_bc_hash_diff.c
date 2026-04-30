@@ -158,8 +158,8 @@ static void test_diff_identical_exit_0(void** state)
     char stdout_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     char stderr_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     int exit_status = -1;
-    assert_int_equal(bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status),
-                     0);
+    assert_int_equal(
+        bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status), 0);
     assert_int_equal(exit_status, 0);
     assert_null(strstr(stdout_buffer, "ADDED"));
     assert_null(strstr(stdout_buffer, "REMOVED"));
@@ -178,9 +178,12 @@ static void test_diff_added_path(void** state)
     char buffer_b[1024];
     size_t offset_a = 0;
     size_t offset_b = 0;
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/path/a"), 0);
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_abc, "/path/a"), 0);
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_xyz, "/path/new"), 0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/path/a"),
+                     0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_abc, "/path/a"),
+                     0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_xyz, "/path/new"),
+                     0);
     assert_int_equal(bc_hash_diff_test_write_file(digest_a, buffer_a, offset_a), 0);
     assert_int_equal(bc_hash_diff_test_write_file(digest_b, buffer_b, offset_b), 0);
 
@@ -188,8 +191,8 @@ static void test_diff_added_path(void** state)
     char stdout_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     char stderr_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     int exit_status = -1;
-    assert_int_equal(bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status),
-                     0);
+    assert_int_equal(
+        bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status), 0);
     assert_int_equal(exit_status, 1);
     assert_non_null(strstr(stdout_buffer, "ADDED"));
     assert_non_null(strstr(stdout_buffer, "/path/new"));
@@ -205,9 +208,12 @@ static void test_diff_removed_path(void** state)
     char buffer_b[1024];
     size_t offset_a = 0;
     size_t offset_b = 0;
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/path/a"), 0);
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_xyz, "/path/gone"), 0);
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_abc, "/path/a"), 0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/path/a"),
+                     0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_xyz, "/path/gone"),
+                     0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_abc, "/path/a"),
+                     0);
     assert_int_equal(bc_hash_diff_test_write_file(digest_a, buffer_a, offset_a), 0);
     assert_int_equal(bc_hash_diff_test_write_file(digest_b, buffer_b, offset_b), 0);
 
@@ -215,8 +221,8 @@ static void test_diff_removed_path(void** state)
     char stdout_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     char stderr_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     int exit_status = -1;
-    assert_int_equal(bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status),
-                     0);
+    assert_int_equal(
+        bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status), 0);
     assert_int_equal(exit_status, 1);
     assert_non_null(strstr(stdout_buffer, "REMOVED"));
     assert_non_null(strstr(stdout_buffer, "/path/gone"));
@@ -232,8 +238,10 @@ static void test_diff_modified_path(void** state)
     char buffer_b[1024];
     size_t offset_a = 0;
     size_t offset_b = 0;
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/path/x"), 0);
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_xyz, "/path/x"), 0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/path/x"),
+                     0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_xyz, "/path/x"),
+                     0);
     assert_int_equal(bc_hash_diff_test_write_file(digest_a, buffer_a, offset_a), 0);
     assert_int_equal(bc_hash_diff_test_write_file(digest_b, buffer_b, offset_b), 0);
 
@@ -241,8 +249,8 @@ static void test_diff_modified_path(void** state)
     char stdout_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     char stderr_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     int exit_status = -1;
-    assert_int_equal(bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status),
-                     0);
+    assert_int_equal(
+        bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status), 0);
     assert_int_equal(exit_status, 1);
     assert_non_null(strstr(stdout_buffer, "MODIFIED"));
     assert_non_null(strstr(stdout_buffer, "/path/x"));
@@ -260,11 +268,16 @@ static void test_diff_mixed_summary_counts(void** state)
     char buffer_b[2048];
     size_t offset_a = 0;
     size_t offset_b = 0;
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/p/kept"), 0);
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/p/removed"), 0);
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/p/edit"), 0);
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_abc, "/p/kept"), 0);
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_xyz, "/p/edit"), 0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/p/kept"),
+                     0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/p/removed"),
+                     0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/p/edit"),
+                     0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_abc, "/p/kept"),
+                     0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_xyz, "/p/edit"),
+                     0);
     assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_sha256_xyz, "/p/new"), 0);
     assert_int_equal(bc_hash_diff_test_write_file(digest_a, buffer_a, offset_a), 0);
     assert_int_equal(bc_hash_diff_test_write_file(digest_b, buffer_b, offset_b), 0);
@@ -273,8 +286,8 @@ static void test_diff_mixed_summary_counts(void** state)
     char stdout_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     char stderr_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     int exit_status = -1;
-    assert_int_equal(bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status),
-                     0);
+    assert_int_equal(
+        bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status), 0);
     assert_int_equal(exit_status, 1);
     assert_non_null(strstr(stderr_buffer, "1 added"));
     assert_non_null(strstr(stderr_buffer, "1 removed"));
@@ -291,7 +304,8 @@ static void test_diff_cross_algo_refused(void** state)
     char buffer_b[1024];
     size_t offset_a = 0;
     size_t offset_b = 0;
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/path/a"), 0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/path/a"),
+                     0);
     assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_b, sizeof(buffer_b), &offset_b, bc_hash_diff_test_xxh3_abc, "/path/a"), 0);
     assert_int_equal(bc_hash_diff_test_write_file(digest_a, buffer_a, offset_a), 0);
     assert_int_equal(bc_hash_diff_test_write_file(digest_b, buffer_b, offset_b), 0);
@@ -300,8 +314,8 @@ static void test_diff_cross_algo_refused(void** state)
     char stdout_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     char stderr_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     int exit_status = -1;
-    assert_int_equal(bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status),
-                     0);
+    assert_int_equal(
+        bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status), 0);
     assert_int_equal(exit_status, 2);
 }
 
@@ -312,7 +326,8 @@ static void test_diff_mixed_simple_and_ndjson(void** state)
     const char* digest_b = BC_HASH_TEST_FIXTURES_DIRECTORY "/diff_mixed_format_b.ndjson";
     char buffer_a[1024];
     size_t offset_a = 0;
-    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/path/a"), 0);
+    assert_int_equal(bc_hash_diff_test_write_simple_line(buffer_a, sizeof(buffer_a), &offset_a, bc_hash_diff_test_sha256_abc, "/path/a"),
+                     0);
     assert_int_equal(bc_hash_diff_test_write_file(digest_a, buffer_a, offset_a), 0);
 
     char ndjson_buffer[2048];
@@ -329,8 +344,8 @@ static void test_diff_mixed_simple_and_ndjson(void** state)
     char stdout_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     char stderr_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     int exit_status = -1;
-    assert_int_equal(bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status),
-                     0);
+    assert_int_equal(
+        bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status), 0);
     assert_int_equal(exit_status, 1);
     assert_non_null(strstr(stdout_buffer, "ADDED"));
     assert_non_null(strstr(stdout_buffer, "/path/new"));
@@ -352,8 +367,8 @@ static void test_diff_missing_input_exit_2(void** state)
     char stdout_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     char stderr_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     int exit_status = -1;
-    assert_int_equal(bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status),
-                     0);
+    assert_int_equal(
+        bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status), 0);
     assert_int_equal(exit_status, 2);
 }
 
@@ -372,8 +387,8 @@ static void test_diff_malformed_input_exit_2(void** state)
     char stdout_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     char stderr_buffer[BC_HASH_DIFF_TEST_BUFFER_SIZE];
     int exit_status = -1;
-    assert_int_equal(bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status),
-                     0);
+    assert_int_equal(
+        bc_hash_diff_test_run(argv, 3, stdout_buffer, sizeof(stdout_buffer), stderr_buffer, sizeof(stderr_buffer), &exit_status), 0);
     assert_int_equal(exit_status, 2);
 }
 
